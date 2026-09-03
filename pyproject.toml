@@ -5,6 +5,8 @@ description = "PDF, EPUB и FB2 в аудиокнигу m4b. Русский и �
 requires-python = ">=3.12"
 dependencies = [
     "certifi>=2026.7.22",
+    "misaki[en]>=0.9.4",
+    "mlx-audio>=0.5.1",
     "numpy>=2.0",
     "omegaconf>=2.3.1",
     "torch>=2.14.0",
