@@ -11,11 +11,12 @@ def test_silero_satisfies_protocol():
 
 
 def test_silero_lists_voices_for_default_model():
-    assert SileroEngine().voices() == ["aidar", "baya", "kseniya", "xenia", "eugene"]
+    assert SileroEngine().voices() == ["aidar", "baya", "kseniya", "eugene", "xenia"]
 
 
 def test_silero_lists_prefixed_voices_for_cis_model():
     voices = SileroEngine(model_id="v5_cis_base").voices()
+    assert len(voices) == 29
     assert all(v.startswith("ru_") for v in voices)
 
 
@@ -97,3 +98,15 @@ def test_silero_synthesizes_russian_text(tmp_path):
         assert w.getframerate() == 24000
         assert w.getnchannels() == 1
         assert w.getnframes() > 24000
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("model_id", ["v5_5_ru", "v5_cis_base"])
+def test_hardcoded_voice_list_matches_model(model_id):
+    """VOICES захардкожен, чтобы voices() не тянул веса. Тут сверяем с моделью."""
+    from book2audio.tts.silero import VOICES
+
+    engine = SileroEngine(model_id=model_id)
+    speakers = list(engine._load().speakers)
+    expected = [s for s in speakers if s.startswith("ru_")] or speakers
+    assert VOICES[model_id] == expected

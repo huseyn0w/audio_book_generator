@@ -11,10 +11,43 @@ import torch
 from book2audio.audio import write_wav_mono16
 from book2audio.net import ensure_ssl_certs
 
+# Порядок совпадает с model.speakers. Медленный тест это сторожит.
 VOICES: dict[str, list[str]] = {
-    "v5_5_ru": ["aidar", "baya", "kseniya", "xenia", "eugene"],
-    "v5_ru": ["aidar", "baya", "kseniya", "xenia", "eugene"],
-    "v5_cis_base": ["ru_aidar", "ru_baya", "ru_kseniya", "ru_xenia", "ru_eugene"],
+    "v5_5_ru": ["aidar", "baya", "kseniya", "eugene", "xenia"],
+    "v5_ru": ["aidar", "baya", "kseniya", "eugene", "xenia"],
+    # Дикторы стран СНГ, читающие по-русски. Часть из них с акцентом,
+    # поэтому в сравнении голосов они идут после родных v5_5_ru.
+    "v5_cis_base": [
+        "ru_aigul",
+        "ru_albina",
+        "ru_alexandr",
+        "ru_alfia",
+        "ru_alfia2",
+        "ru_bogdan",
+        "ru_dmitriy",
+        "ru_ekaterina",
+        "ru_vika",
+        "ru_gamat",
+        "ru_igor",
+        "ru_karina",
+        "ru_kejilgan",
+        "ru_kermen",
+        "ru_marat",
+        "ru_miyau",
+        "ru_nurgul",
+        "ru_oksana",
+        "ru_onaoy",
+        "ru_ramilia",
+        "ru_roman",
+        "ru_safarhuja",
+        "ru_saida",
+        "ru_sibday",
+        "ru_zara",
+        "ru_zhadyra",
+        "ru_zhazira",
+        "ru_zinaida",
+        "ru_eduard",
+    ],
 }
 
 ALLOWED_SAMPLE_RATES = (8000, 24000, 48000)
