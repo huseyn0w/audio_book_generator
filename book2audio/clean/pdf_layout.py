@@ -4,9 +4,12 @@
 склейка обрывков, потом выбрасывание служебных блоков.
 """
 
+import re
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import replace
 
-from book2audio.extract.layout import RawBlock
+from book2audio.extract.layout import RawBlock, RawPage
 
 # Знаки, на которых абзац действительно кончается.
 TERMINALS = (".", "!", "?", "…", ":", ";", "»", '"', "”", "’")
@@ -52,3 +55,70 @@ def merge_continuations(blocks: list[RawBlock]) -> list[RawBlock]:
         else:
             merged.append(block)
     return merged
+
+
+# --- служебные блоки страницы ---
+
+# Полоса сверху и снизу, в которой ищем колонцифры и колонтитулы.
+EDGE_BAND = 0.12
+
+# На какой доле страниц должна встретиться строка, чтобы считаться колонтитулом.
+RUNNING_SHARE = 0.3
+
+# Предохранитель: правило, съедающее больше этой доли страницы, на ней не
+# применяется. Лучше прочитать колонтитул, чем потерять абзац.
+MAX_DROP_SHARE = 0.6
+
+PAGE_NUMBER = re.compile(r"^[\divxlcdmIVXLCDM.\s\-–—]+$")
+
+DIGITS = re.compile(r"\d+")
+
+
+def _in_edge_band(block: RawBlock, page: RawPage) -> bool:
+    band = page.height * EDGE_BAND
+    return block.top < band or block.top > page.height - band
+
+
+def normalize_for_matching(text: str) -> str:
+    """Форма для сравнения колонтитулов: цифры в решётку, регистр вниз."""
+    return DIGITS.sub("#", text).strip().lower()
+
+
+def _apply_with_guard(
+    pages: list[RawPage], should_drop: Callable[[RawBlock, RawPage], bool]
+) -> list[RawPage]:
+    """Применяет правило постранично, отступая, если оно съедает страницу."""
+    result: list[RawPage] = []
+    for page in pages:
+        kept = [b for b in page.blocks if not should_drop(b, page)]
+        if page.blocks and len(kept) < len(page.blocks) * (1 - MAX_DROP_SHARE):
+            kept = list(page.blocks)
+        result.append(replace(page, blocks=kept))
+    return result
+
+
+def drop_page_numbers(pages: list[RawPage]) -> list[RawPage]:
+    """Выбрасывает колонцифры: голые числа у верхнего или нижнего края."""
+
+    def rule(block: RawBlock, page: RawPage) -> bool:
+        return _in_edge_band(block, page) and bool(PAGE_NUMBER.fullmatch(block.text.strip()))
+
+    return _apply_with_guard(pages, rule)
+
+
+def drop_running_heads(pages: list[RawPage]) -> list[RawPage]:
+    """Выбрасывает колонтитулы: краевые строки, повторяющиеся по всей книге."""
+    seen: Counter[str] = Counter()
+    for page in pages:
+        edges = {normalize_for_matching(b.text) for b in page.blocks if _in_edge_band(b, page)}
+        seen.update(edges)
+
+    threshold = max(2, len(pages) * RUNNING_SHARE)
+    running = {form for form, count in seen.items() if count >= threshold}
+    if not running:
+        return list(pages)
+
+    def rule(block: RawBlock, page: RawPage) -> bool:
+        return _in_edge_band(block, page) and normalize_for_matching(block.text) in running
+
+    return _apply_with_guard(pages, rule)
