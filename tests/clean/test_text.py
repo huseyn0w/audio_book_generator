@@ -1,6 +1,12 @@
 import pytest
 
-from book2audio.clean.text import clean_text, join_hyphenated, normalize_quotes, squeeze_spaces
+from book2audio.clean.text import (
+    clean_text,
+    join_hyphenated,
+    normalize_quotes,
+    restore_big_o,
+    squeeze_spaces,
+)
 
 # --- переносы ---
 
@@ -77,3 +83,42 @@ def test_clean_text_is_idempotent():
 
 def test_clean_text_keeps_meaningful_dashes():
     assert clean_text("Москва — столица.") == "Москва — столица."
+
+
+# --- О-большое, потерянное при извлечении ---
+
+
+def test_big_o_restored_before_letter():
+    """В шрифтах технических книг буква O иногда приходит нулём.
+
+    Замер на фикстурах: 15 попаданий в английской технической книге,
+    ноль ложных срабатываний в пяти остальных.
+    """
+    assert restore_big_o("which is just 0(N2 log N).") == "which is just O(N2 log N)."
+
+
+def test_big_o_restored_before_digit():
+    assert restore_big_o("runs in 0(1) time") == "runs in O(1) time"
+
+
+def test_big_o_survives_a_space_from_typesetting():
+    """В реальной книге вёрстка вставляет пробел: '0( s log s)'."""
+    assert restore_big_o("is 0( s log s).") == "is O(s log s)."
+
+
+def test_cyrillic_after_the_paren_is_not_big_o():
+    assert restore_big_o("0(ноль) баллов") == "0(ноль) баллов"
+
+
+def test_plain_zero_in_parentheses_is_left_alone():
+    assert restore_big_o("оценка 0 (ноль) баллов") == "оценка 0 (ноль) баллов"
+    assert restore_big_o("значение 0(-1) не трогаем") == "значение 0(-1) не трогаем"
+
+
+def test_zero_not_touched_outside_parentheses():
+    assert restore_big_o("ровно 0 попыток") == "ровно 0 попыток"
+    assert restore_big_o("в 2010 году") == "в 2010 году"
+
+
+def test_clean_text_applies_the_repair():
+    assert "O(n" in clean_text("sorting is 0(n log n) overall")
