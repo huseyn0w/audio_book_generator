@@ -38,6 +38,7 @@ class KokoroEngine:
 
     def __init__(self, model_repo: str = "mlx-community/Kokoro-82M-bf16") -> None:
         self.model_repo = model_repo
+        self.version = model_repo
         self._model = None
 
     def voices(self) -> list[Voice]:

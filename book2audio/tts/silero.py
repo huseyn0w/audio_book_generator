@@ -74,6 +74,7 @@ class SileroEngine:
             raise ValueError(f"Silero не умеет частоту {sample_rate}")
         self.sample_rate = sample_rate
         self.model_id = model_id
+        self.version = model_id
         self._model = None
 
     def voices(self) -> list[Voice]:

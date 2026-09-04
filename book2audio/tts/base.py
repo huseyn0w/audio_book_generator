@@ -38,6 +38,8 @@ def pick_default(language: str, gender: str) -> str:
 @runtime_checkable
 class TTSEngine(Protocol):
     name: str
+    # Версия модели входит в ключ кэша: смена модели инвалидирует старые wav.
+    version: str
     sample_rate: int
 
     def voices(self) -> list[Voice]:

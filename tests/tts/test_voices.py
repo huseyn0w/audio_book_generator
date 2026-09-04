@@ -66,3 +66,9 @@ def test_pick_default_returns_voice_id():
 def test_pick_default_rejects_unsupported_combination():
     with pytest.raises(KeyError):
         pick_default("de", "female")
+
+
+def test_every_engine_reports_a_version_for_the_cache_key():
+    assert FakeEngine().version
+    assert SileroEngine(model_id="v5_5_ru").version == "v5_5_ru"
+    assert KokoroEngine().version == "mlx-community/Kokoro-82M-bf16"
