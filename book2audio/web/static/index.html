@@ -1,1 +1,117 @@
-<!doctype html><meta charset=utf-8><title>book2audio</title><p>заглушка</p>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>book2audio</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>book2audio</h1>
+    <span class="eyebrow mono">pdf · epub · fb2</span>
+  </header>
+
+  <!-- 1. загрузка -->
+  <section id="screen-upload" class="screen active" aria-labelledby="h-upload">
+    <h2 id="h-upload">Загрузить книгу</h2>
+    <div id="dropzone" class="dropzone" tabindex="0" role="button"
+         aria-label="Перетащите файл книги или нажмите, чтобы выбрать">
+      <p><strong>Перетащите файл сюда</strong></p>
+      <p class="subtle">или нажмите, чтобы выбрать. PDF, EPUB или FB2</p>
+      <input type="file" id="file" accept=".pdf,.epub,.fb2" hidden>
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <div class="row">
+        <div style="flex:1;min-width:160px">
+          <label for="language">Язык книги</label>
+          <select id="language">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label for="gender">Голос</label>
+          <select id="gender">
+            <option value="female">Женский</option>
+            <option value="male">Мужской</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label for="voice">Диктор</label>
+          <select id="voice"><option value="">по умолчанию</option></select>
+        </div>
+      </div>
+    </div>
+    <p id="upload-error" class="error" hidden role="alert"></p>
+  </section>
+
+  <!-- 2. предпросмотр -->
+  <section id="screen-review" class="screen" aria-labelledby="h-review">
+    <h2 id="h-review">Проверьте текст</h2>
+    <p class="muted">Синтез займёт время, поэтому мусор лучше убрать сейчас.
+       Снимите галочки с ненужных глав, поправьте текст прямо здесь.</p>
+
+    <div class="card">
+      <div class="stat">
+        <span id="review-title" class="mono"></span>
+        <span id="review-size"></span>
+      </div>
+    </div>
+
+    <div id="chapters" class="card"></div>
+
+    <div class="row">
+      <div style="flex:1;min-width:160px">
+        <label for="format">Формат</label>
+        <select id="format">
+          <option value="m4b">m4b, один файл с главами</option>
+          <option value="mp3">mp3, папка по главам</option>
+        </select>
+      </div>
+      <button id="synth">Озвучить</button>
+      <button id="back" class="secondary">Другая книга</button>
+    </div>
+  </section>
+
+  <!-- 3. прогресс -->
+  <section id="screen-progress" class="screen" aria-labelledby="h-progress">
+    <h2 id="h-progress">Работаю</h2>
+    <p id="progress-title" class="mono muted"></p>
+    <div class="card">
+      <div id="stage" role="status" aria-live="polite">готовлю</div>
+      <div class="bar"><div id="bar-fill"></div></div>
+      <div class="stat">
+        <span id="counter" class="mono">0 / 0</span>
+        <span id="eta"></span>
+      </div>
+    </div>
+    <button id="cancel" class="danger">Отменить</button>
+  </section>
+
+  <!-- 4. готово -->
+  <section id="screen-done" class="screen" aria-labelledby="h-done">
+    <h2 id="h-done">Готово</h2>
+    <div class="card">
+      <div id="done-title" class="mono"></div>
+      <audio id="player" controls preload="none"></audio>
+      <p class="path" id="icloud-path"></p>
+    </div>
+    <div class="row">
+      <button id="download">Скачать</button>
+      <button id="again" class="secondary">Ещё книга</button>
+    </div>
+  </section>
+
+  <!-- ошибка -->
+  <section id="screen-failed" class="screen" aria-labelledby="h-failed">
+    <h2 id="h-failed">Не получилось</h2>
+    <p id="failed-message" class="error" role="alert"></p>
+    <button id="retry" class="secondary">Другая книга</button>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

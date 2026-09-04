@@ -10,7 +10,13 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from book2audio.assemble import ChapterAudio, wav_duration, write_m4b, write_mp3_per_chapter
+from book2audio.assemble import (
+    ChapterAudio,
+    safe_filename,
+    wav_duration,
+    write_m4b,
+    write_mp3_per_chapter,
+)
 from book2audio.audio import concat, silence
 from book2audio.chunker import chunk_document
 from book2audio.extract.base import NoTextLayer
@@ -180,7 +186,7 @@ class Runner:
 
         self.store.set_progress(job.id, "assemble", total, total)
         out_dir = self.out_root / job.id
-        name = document.title[:90] or "book"
+        name = safe_filename(document.title)
         if job.audio_format == "mp3":
             result = write_mp3_per_chapter(built, document, out_dir / name)
         else:

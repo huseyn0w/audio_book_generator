@@ -186,3 +186,31 @@ def test_wav_duration_helper_matches_the_file(tmp_path):
     assert wav_duration(path) == pytest.approx(2.5, abs=0.01)
     with wave.open(str(path)) as w:
         assert w.getnframes() == 60000
+
+
+# --- имена файлов ---
+
+def test_safe_filename_cuts_at_a_word_boundary():
+    """Обрыв посреди слова выглядит поломкой: «поддерживать е.m4b»."""
+    from book2audio.assemble import safe_filename
+
+    title = "Решение проблемы инноваций в бизнесе как создать растущий бизнес"
+    cut = safe_filename(title, limit=40)
+
+    assert len(cut) <= 40
+    assert title.startswith(cut)
+    assert cut.split() == title.split()[: len(cut.split())]
+    assert not cut.endswith(" ")
+
+
+def test_safe_filename_keeps_short_names_untouched():
+    from book2audio.assemble import safe_filename
+
+    assert safe_filename("Короткое имя", limit=90) == "Короткое имя"
+
+
+def test_safe_filename_falls_back_when_the_first_word_is_too_long():
+    from book2audio.assemble import safe_filename
+
+    cut = safe_filename("а" * 200, limit=20)
+    assert len(cut) == 20

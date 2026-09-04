@@ -172,3 +172,16 @@ app.command(name="convert")(convert_book)
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option(help="Адрес. По умолчанию только localhost")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Порт")] = 8000,
+    reload: Annotated[bool, typer.Option(help="Перезапуск при правке кода")] = False,
+) -> None:
+    """Поднимает веб-интерфейс."""
+    import uvicorn
+
+    typer.echo(f"открой http://{host}:{port}")
+    uvicorn.run("book2audio.web.main:app", host=host, port=port, reload=reload)

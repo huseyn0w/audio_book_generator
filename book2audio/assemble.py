@@ -41,8 +41,18 @@ def _escape(value: str) -> str:
 
 
 def safe_filename(name: str, limit: int = 90) -> str:
+    """Имя файла из названия. Длинное режется по границе слова.
+
+    Обрыв посреди слова выглядит поломкой: «поддерживать е.m4b».
+    """
     cleaned = " ".join(FILENAME_UNSAFE.sub(" ", name).split())
-    return cleaned[:limit] or "chapter"
+    if len(cleaned) <= limit:
+        return cleaned or "chapter"
+    head = cleaned[:limit]
+    space = head.rfind(" ")
+    if space > limit // 2:
+        head = head[:space]
+    return head.rstrip(" ,.;:-") or "chapter"
 
 
 def build_chapter_metadata(chapters: list[ChapterAudio], document: Document) -> str:

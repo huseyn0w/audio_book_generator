@@ -5,7 +5,6 @@
 """
 
 import json
-import re
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -54,9 +53,9 @@ def pick_extractor(path: Path, clean: bool) -> Extractor:
 
 def _safe_name(title: str) -> str:
     """Имя файла из названия книги. Слеши и двоеточия ломают путь."""
-    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', " ", title)
-    cleaned = " ".join(cleaned.split())
-    return cleaned[:120] or "book"
+    from book2audio.assemble import safe_filename
+
+    return safe_filename(title, limit=120)
 
 
 def convert(

@@ -85,3 +85,14 @@ def test_convert_command_explains_a_scanned_pdf(tmp_path):
     )
     assert result.exit_code != 0
     assert "OCR" in result.stdout
+
+
+def test_serve_command_exists_and_defaults_to_localhost():
+    """Инструмент внутренний, авторизации нет: наружу светить нельзя."""
+    import inspect
+
+    from book2audio.cli import serve
+
+    defaults = {name: param.default for name, param in inspect.signature(serve).parameters.items()}
+    assert defaults["host"] == "127.0.0.1"
+    assert defaults["port"] == 8000
