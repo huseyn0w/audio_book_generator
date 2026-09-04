@@ -30,6 +30,18 @@ RECIPES: dict[str, tuple[str, int, int, str]] = {
         12,
         "нет текстового слоя, ждём понятную ошибку",
     ),
+    "typeset_ru.pdf": (
+        "7-hist-05.pdf",
+        44,
+        51,
+        "две колонки, колонтитулы, сноски мелким шрифтом, переносы",
+    ),
+    "typeset_en.pdf": (
+        "Cracking the Coding Interview 189 Programming Questions and Solutions.pdf",
+        60,
+        66,
+        "колонтитулы, номера страниц, листинги кода",
+    ),
 }
 
 
