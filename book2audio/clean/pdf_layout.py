@@ -193,3 +193,59 @@ def drop_footnotes(pages: list[RawPage], median: float) -> list[RawPage]:
         )
 
     return _apply_with_guard(pages, rule)
+
+
+# --- колонки и порядок чтения ---
+
+# Допуск вокруг середины страницы: блок может немного заходить за неё.
+COLUMN_TOLERANCE = 0.04
+
+# Сколько блоков должно быть в каждой колонке, чтобы поверить в две колонки.
+MIN_BLOCKS_PER_COLUMN = 3
+
+# Доля ширины страницы, начиная с которой блок считается сквозным.
+FULL_WIDTH_SHARE = 0.7
+
+
+def _column_of(block: RawBlock, page: RawPage) -> int:
+    """0 это левая колонка и сквозные блоки, 1 это правая."""
+    middle = page.width / 2
+    tolerance = page.width * COLUMN_TOLERANCE
+    if (block.bbox[2] - block.bbox[0]) >= page.width * FULL_WIDTH_SHARE:
+        return 0
+    return 1 if block.bbox[0] >= middle - tolerance else 0
+
+
+def column_count(page: RawPage) -> int:
+    """Две колонки или одна. Ошибка сюда дороже всего: текст поедет чересполосицей."""
+    middle = page.width / 2
+    tolerance = page.width * COLUMN_TOLERANCE
+
+    left = right = 0
+    for block in page.blocks:
+        if (block.bbox[2] - block.bbox[0]) >= page.width * FULL_WIDTH_SHARE:
+            continue
+        if block.bbox[2] <= middle + tolerance:
+            left += 1
+        elif block.bbox[0] >= middle - tolerance:
+            right += 1
+
+    if left >= MIN_BLOCKS_PER_COLUMN and right >= MIN_BLOCKS_PER_COLUMN:
+        return 2
+    return 1
+
+
+def sort_reading_order(page: RawPage) -> RawPage:
+    """Расставляет блоки в порядке чтения.
+
+    При одной колонке сверху вниз. При двух сначала вся левая колонка,
+    потом вся правая: PyMuPDF сортирует по y и на двух колонках выдаёт
+    строки вперемешку.
+    """
+    if column_count(page) == 1:
+        ordered = sorted(page.blocks, key=lambda b: (round(b.top, 1), b.bbox[0]))
+    else:
+        ordered = sorted(
+            page.blocks, key=lambda b: (_column_of(b, page), round(b.top, 1), b.bbox[0])
+        )
+    return replace(page, blocks=ordered)
