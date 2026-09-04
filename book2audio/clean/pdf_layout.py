@@ -122,3 +122,74 @@ def drop_running_heads(pages: list[RawPage]) -> list[RawPage]:
         return _in_edge_band(block, page) and normalize_for_matching(block.text) in running
 
     return _apply_with_guard(pages, rule)
+
+
+# --- не-проза ---
+
+# Вёрстка ставит перед подписью к рисунку служебный глиф. В извлечённом
+# тексте он приходит управляющим символом. Сигнал очень точный: 48 попаданий
+# в учебнике истории и ноль в двух других книгах.
+FIGURE_MARKER = re.compile(r"^[\x00-\x1f]")
+
+# Доля символов, которые не буквы и не пробелы. Выше этой границы блок
+# считается листингом или таблицей.
+NON_PROSE_RATIO = 0.30
+NON_PROSE_MIN_CHARS = 40
+
+# Сноска начинается с номера.
+FOOTNOTE_START = re.compile(r"^\d{1,3}[\s.)]")
+
+# Полоса внизу страницы, в которой ищем сноски.
+FOOTNOTE_BAND = 0.75
+
+# Насколько мельче медианы должен быть шрифт сноски.
+SMALL_FONT_RATIO = 0.92
+
+
+def _non_alpha_share(text: str) -> float:
+    if not text:
+        return 0.0
+    noise = sum(1 for char in text if not char.isalpha() and not char.isspace())
+    return noise / len(text)
+
+
+def drop_figure_captions(pages: list[RawPage]) -> list[RawPage]:
+    """Выбрасывает подписи к рисункам.
+
+    Читать «Бюст Диоклетиана» посреди абзаца бессмысленно, а в учебниках
+    таких подписей десятки на разворот.
+    """
+
+    def rule(block: RawBlock, page: RawPage) -> bool:
+        return bool(FIGURE_MARKER.match(block.text))
+
+    return _apply_with_guard(pages, rule)
+
+
+def drop_non_prose(pages: list[RawPage]) -> list[RawPage]:
+    """Выбрасывает листинги кода и таблицы. Вслух они бесполезны."""
+
+    def rule(block: RawBlock, page: RawPage) -> bool:
+        return (
+            len(block.text) >= NON_PROSE_MIN_CHARS
+            and _non_alpha_share(block.text) > NON_PROSE_RATIO
+        )
+
+    return _apply_with_guard(pages, rule)
+
+
+def drop_footnotes(pages: list[RawPage], median: float) -> list[RawPage]:
+    """Выбрасывает сноски: мелкий шрифт, низ страницы и номер в начале.
+
+    Все три условия обязательны. Одного мелкого шрифта внизу мало: в
+    Cracking the Coding Interview так набран обычный текст.
+    """
+
+    def rule(block: RawBlock, page: RawPage) -> bool:
+        return (
+            block.font_size < median * SMALL_FONT_RATIO
+            and block.top > page.height * FOOTNOTE_BAND
+            and bool(FOOTNOTE_START.match(block.text))
+        )
+
+    return _apply_with_guard(pages, rule)
