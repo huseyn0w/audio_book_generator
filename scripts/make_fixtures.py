@@ -134,8 +134,10 @@ def cut_epub(source: Path, keep_docs: int, target: Path) -> None:
 EBOOK_RECIPES: dict[str, tuple[str, int, str]] = {
     "book_ru.fb2": ("430741.fb2", 5, "секции, вложенность, отдельный body примечаний"),
     "book_ru.epub": (
-        "Kristensen_Reshenie-problemy-innovaciy-v-biznese-Kak-sozdat-rastushchiy-biznes-"
-        "i-uspeshno-podderzhivat-ego-rost.430741.fb2.epub",
+        (
+            "Kristensen_Reshenie-problemy-innovaciy-v-biznese-Kak-sozdat-rastushchiy-biznes-"
+            "i-uspeshno-podderzhivat-ego-rost.430741.fb2.epub"
+        ),
         12,
         "вложенное оглавление с якорями, нет заголовков h1-h3",
     ),
