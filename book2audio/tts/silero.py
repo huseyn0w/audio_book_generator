@@ -64,6 +64,11 @@ GENDER: dict[str, str] = {
 
 ALLOWED_SAMPLE_RATES = (8000, 24000, 48000)
 
+# Предел длины куска. Замер бисекцией 2026-09-05 на реальном абзаце:
+# v5_5_ru принял 1097 символов, v5_cis_base 795. Берём с запасом: предел
+# зависит от текста, а не только от числа символов.
+MAX_CHARS = {"v5_5_ru": 900, "v5_ru": 900, "v5_cis_base": 700}
+
 
 class SileroEngine:
     name = "silero"
@@ -78,6 +83,7 @@ class SileroEngine:
             raise ValueError(f"Silero не умеет частоту {sample_rate}")
         self.sample_rate = sample_rate
         self.model_id = model_id
+        self.max_chars = MAX_CHARS[model_id]
         self.version = model_id
         self._model = None
 

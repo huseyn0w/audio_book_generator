@@ -109,7 +109,9 @@ def convert(
     report("chunk", 0, 1)
     grouped: list[list[Chunk]] = [
         chunk_document(
-            Document(document.title, document.author, document.language, [chapter]), language
+            Document(document.title, document.author, document.language, [chapter]),
+            language,
+            limit=engine.max_chars,
         )
         for chapter in document.chapters
     ]

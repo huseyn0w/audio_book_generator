@@ -14,6 +14,7 @@ from book2audio.tts.base import Voice
 class FakeEngine:
     name = "fake"
     realtime = 60.0
+    max_chars = 800
     version = "1"
     sample_rate = 24000
     CHARS_PER_SECOND = 15.0

@@ -215,3 +215,31 @@ def test_convert_writes_no_synth_report_when_nothing_failed(tmp_path):
         work_dir=work,
     )
     assert not (work / "synth_report.json").exists()
+
+
+class ShortLimitEngine(FakeEngine):
+    """Движок с коротким пределом, как модель голосов СНГ."""
+
+    max_chars = 120
+
+    def synth(self, text: str, voice: str, out_path) -> None:
+        if len(text) > self.max_chars:
+            raise RuntimeError(f"кусок длиннее предела: {len(text)}")
+        super().synth(text, voice, out_path)
+
+
+def test_convert_respects_the_engine_chunk_limit(tmp_path):
+    """Общий лимит в 800 символов ломает движок, который держит меньше."""
+    book = tmp_path / "book.fb2"
+    long_text = "Довольно длинное предложение про инновации и рынки. " * 20
+    book.write_text(_fb2("Глава", long_text), encoding="utf-8")
+    work = tmp_path / "work"
+    convert(
+        book,
+        language="ru",
+        voice="fake_a",
+        out_dir=tmp_path / "out",
+        engine=ShortLimitEngine(),
+        work_dir=work,
+    )
+    assert not (work / "synth_report.json").exists()

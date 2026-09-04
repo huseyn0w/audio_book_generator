@@ -36,6 +36,8 @@ class KokoroEngine:
     name = "kokoro"
     # Замер на M-серии. Kokoro заметно тяжелее Silero.
     realtime = 5.8
+    # Kokoro режет длинный текст сам, но чанкер держит ту же планку.
+    max_chars = 800
     sample_rate = 24000
 
     def __init__(self, model_repo: str = "mlx-community/Kokoro-82M-bf16") -> None:

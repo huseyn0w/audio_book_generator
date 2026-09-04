@@ -36,7 +36,18 @@ TEXT_BY_LANG = {"ru": RU_TEXT, "en": EN_TEXT}
 ENGINE_SETS: dict[str, list[str]] = {
     "native": ["silero:v5_5_ru", "kokoro"],
     "all": ["silero:v5_5_ru", "silero:v5_cis_base", "kokoro"],
+    # Только русские: пересматривать выбор обычно нужно для одного языка,
+    # и гонять при этом 11 английских голосов незачем.
+    "ru-native": ["silero:v5_5_ru"],
+    "ru-all": ["silero:v5_5_ru", "silero:v5_cis_base"],
 }
+
+# Ниже этого абзац слишком короток, чтобы судить о голосе.
+MIN_SAMPLE_CHARS = 200
+
+# Предел на образец. Замер: v5_5_ru принимает ~1097 символов, v5_cis_base
+# ~795. Берём с запасом ниже меньшего, чтобы сравнение шло на всех голосах.
+SAMPLE_LIMIT = 600
 
 
 def build_engines(names: list[str]) -> list[tuple[TTSEngine, str]]:
@@ -119,8 +130,34 @@ def write_player_page(mapping: dict[str, str], genders: dict[str, str], out_dir:
     (out_dir / "index.html").write_text(html, encoding="utf-8")
 
 
-def run_bakeoff(engines: list[tuple[TTSEngine, str]], out_dir: Path) -> dict[str, str]:
-    """Синтезирует тестовый абзац всеми голосами. Возвращает расшифровку имён."""
+def sample_text(path: Path, language: str) -> str:
+    """Первый достаточно длинный абзац книги.
+
+    Голос судят на своём материале: чужой абзац может лечь удачно, а на
+    твоей книге тот же диктор будет раздражать через десять минут.
+    """
+    from book2audio.chunker import chunk_document
+    from book2audio.models import Chapter, Document
+    from book2audio.pipeline import pick_extractor
+
+    document = pick_extractor(path, clean=True, language=language).extract(path)
+    for chapter in document.chapters:
+        for block in chapter.blocks:
+            if len(block.text) < MIN_SAMPLE_CHARS:
+                continue
+            # Целый абзац Silero не примет: у модели есть предел длины.
+            # Режем тем же чанкером, что и в бою, и берём первый кусок.
+            one = Document("образец", None, language, [Chapter("", [block])])
+            chunks = chunk_document(one, language, limit=SAMPLE_LIMIT)
+            if chunks:
+                return chunks[0].text
+    raise ValueError(f"в книге {path.name} не нашлось абзаца для образца")
+
+
+def run_bakeoff(
+    engines: list[tuple[TTSEngine, str]], out_dir: Path, text: str | None = None
+) -> dict[str, str]:
+    """Синтезирует абзац всеми голосами. Возвращает расшифровку имён."""
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "key").mkdir(exist_ok=True)
 
@@ -133,7 +170,7 @@ def run_bakeoff(engines: list[tuple[TTSEngine, str]], out_dir: Path) -> dict[str
             counters[lang] = counters.get(lang, 0) + 1
             label = f"{lang}_{counters[lang]:02d}"
             x1 = out_dir / f"{label}.wav"
-            engine.synth(TEXT_BY_LANG[lang], voice.id, x1)
+            engine.synth(text or TEXT_BY_LANG[lang], voice.id, x1)
             change_speed(x1, out_dir / f"{label}_x2.wav", 2.0)
             mapping[label] = f"{engine.name}/{voice.id}"
             genders[label] = voice.gender
@@ -154,11 +191,25 @@ def main() -> None:
         dest="engine_set",
         choices=sorted(ENGINE_SETS),
         default="all",
-        help="native это 5 родных русских плюс 11 английских, all добавляет 29 голосов СНГ",
+        help=(
+            "native это 5 родных русских плюс 11 английских, all добавляет 29 голосов "
+            "СНГ, ru-native и ru-all это то же самое без английских"
+        ),
     )
+    parser.add_argument(
+        "--text-from",
+        type=Path,
+        default=None,
+        help="Книга, из которой взять абзац для сравнения. По умолчанию встроенный текст",
+    )
+    parser.add_argument("--lang", default="ru", help="Язык книги из --text-from")
     args = parser.parse_args()
 
-    mapping = run_bakeoff(build_engines(ENGINE_SETS[args.engine_set]), args.out)
+    text = sample_text(args.text_from, args.lang) if args.text_from else None
+    if text:
+        print(f"абзац из книги, {len(text)} символов:\n{text[:200]}...\n")
+
+    mapping = run_bakeoff(build_engines(ENGINE_SETS[args.engine_set]), args.out, text)
     print(f"\n{len(mapping)} голосов в {args.out}")
     print(f"Открой {args.out / 'index.html'} в браузере и слушай.")
     print("Расшифровка также лежит в key/mapping.json")

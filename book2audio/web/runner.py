@@ -159,7 +159,9 @@ class Runner:
 
         grouped = [
             chunk_document(
-                Document(document.title, None, document.language, [chapter]), job.language
+                Document(document.title, None, document.language, [chapter]),
+                job.language,
+                limit=engine.max_chars,
             )
             for chapter in document.chapters
         ]

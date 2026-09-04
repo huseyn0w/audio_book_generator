@@ -51,7 +51,7 @@ def test_fake_engine_reports_voices_too():
 
 def test_defaults_match_the_phase_zero_choice():
     assert DEFAULTS == {
-        ("ru", "female"): "xenia",
+        ("ru", "female"): "kseniya",
         ("ru", "male"): "eugene",
         ("en", "female"): "af_nova",
         ("en", "male"): "am_michael",
@@ -72,3 +72,29 @@ def test_every_engine_reports_a_version_for_the_cache_key():
     assert FakeEngine().version
     assert SileroEngine(model_id="v5_5_ru").version == "v5_5_ru"
     assert KokoroEngine().version == "mlx-community/Kokoro-82M-bf16"
+
+
+# --- предел длины куска ---
+
+
+def test_engines_declare_a_chunk_limit():
+    """Замер 2026-09-05: v5_5_ru принимает ~1097 символов, v5_cis_base ~795.
+
+    Общая константа в 800 символов ломала бы модель СНГ, поэтому предел
+    объявляет сам движок.
+    """
+    from book2audio.tts.kokoro import KokoroEngine
+    from book2audio.tts.silero import SileroEngine
+
+    assert (
+        SileroEngine(model_id="v5_5_ru").max_chars > SileroEngine(model_id="v5_cis_base").max_chars
+    )
+    assert SileroEngine(model_id="v5_cis_base").max_chars < 795
+    assert SileroEngine(model_id="v5_5_ru").max_chars < 1097
+    assert KokoroEngine().max_chars > 0
+
+
+def test_fake_engine_has_a_limit_too():
+    from book2audio.tts.fake import FakeEngine
+
+    assert FakeEngine().max_chars > 0

@@ -3,7 +3,14 @@ import json
 import pytest
 
 from book2audio.tts.fake import FakeEngine
-from scripts.voice_bakeoff import EN_TEXT, ENGINE_SETS, RU_TEXT, build_engines, run_bakeoff
+from scripts.voice_bakeoff import (
+    EN_TEXT,
+    ENGINE_SETS,
+    RU_TEXT,
+    build_engines,
+    run_bakeoff,
+    sample_text,
+)
 
 
 def test_bakeoff_writes_x1_and_x2_for_each_voice(tmp_path):
@@ -79,3 +86,52 @@ def test_player_page_shows_gender_mark(tmp_path):
     html = (tmp_path / "index.html").read_text(encoding="utf-8")
     assert ">ru_01 ♀<" in html
     assert ">ru_02 ♂<" in html
+
+
+# --- сравнение на тексте своей книги ---
+
+
+def test_bakeoff_uses_the_given_text(tmp_path):
+    """Голос судят на своей книге, а не на чужом абзаце."""
+    import wave
+
+    run_bakeoff([(FakeEngine(), "ru")], tmp_path, text="короткий")
+    short = tmp_path / "ru_01.wav"
+    run_bakeoff([(FakeEngine(), "ru")], tmp_path / "long", text="текст заметно длиннее")
+    with wave.open(str(short)) as a, wave.open(str(tmp_path / "long" / "ru_01.wav")) as b:
+        assert b.getnframes() > a.getnframes()
+
+
+def test_bakeoff_falls_back_to_the_built_in_text(tmp_path):
+    import wave
+
+    run_bakeoff([(FakeEngine(), "ru")], tmp_path)
+    with wave.open(str(tmp_path / "ru_01.wav")) as w:
+        expected = round(len(RU_TEXT) / FakeEngine.CHARS_PER_SECOND * w.getframerate())
+        assert w.getnframes() == pytest.approx(expected, rel=0.01)
+
+
+def test_engine_sets_include_russian_only_options():
+    assert "ru-native" in ENGINE_SETS
+    assert "ru-all" in ENGINE_SETS
+    for name in ("ru-native", "ru-all"):
+        assert all(engine.startswith("silero:") for engine in ENGINE_SETS[name])
+
+
+def test_sample_text_reads_a_paragraph_from_a_book(tmp_path):
+    """Берём длинный абзац: по одной фразе голос не оценишь."""
+    book = tmp_path / "b.fb2"
+    long_paragraph = "Довольно длинный абзац про инновации и рынки. " * 6
+    book.write_text(
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">'
+        "<description><title-info><book-title>К</book-title><lang>ru</lang>"
+        "</title-info></description><body><section><title><p>Глава</p></title>"
+        f"<p>Короткий.</p><p>{long_paragraph}</p></section></body></FictionBook>",
+        encoding="utf-8",
+    )
+    text = sample_text(book, "ru")
+    assert "инновации" in text
+    assert len(text) > 200
+    # Предел модели: слишком длинный кусок Silero не примет.
+    assert len(text) <= 600

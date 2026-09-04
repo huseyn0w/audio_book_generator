@@ -64,7 +64,7 @@ Picked by a blind comparison of 45 voices, see
 
 | Language | Female | Male | Engine |
 |---|---|---|---|
-| Russian | xenia | eugene | Silero v5 |
+| Russian | kseniya | eugene | Silero v5 |
 | English | af_nova | am_michael | Kokoro-82M |
 
 Silero v5 places Russian stress marks and resolves homographs on its own.

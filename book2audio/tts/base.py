@@ -9,9 +9,10 @@ Gender = Literal["male", "female", "unknown"]
 
 GENDERS: tuple[str, ...] = ("male", "female", "unknown")
 
-# Выбраны слепым сравнением в фазе 0, см. docs/superpowers/specs/voice-choice.md
+# Выбраны слепым сравнением, см. docs/superpowers/specs/voice-choice.md.
+# Русский женский пересмотрен 2026-09-05 на абзаце из реальной книги.
 DEFAULTS: dict[tuple[str, str], str] = {
-    ("ru", "female"): "xenia",
+    ("ru", "female"): "kseniya",
     ("ru", "male"): "eugene",
     ("en", "female"): "af_nova",
     ("en", "male"): "am_michael",
@@ -44,6 +45,9 @@ class TTSEngine(Protocol):
     # Во сколько раз синтез быстрее реального времени. Нужен, чтобы сказать
     # заранее, сколько ждать: у Silero и Kokoro разница в шесть раз.
     realtime: float
+    # Сколько символов движок принимает за раз. У моделей Silero предел
+    # разный, общая константа ломала бы ту, что держит меньше.
+    max_chars: int
 
     def voices(self) -> list[Voice]:
         """Голоса движка вместе с полом."""
