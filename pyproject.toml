@@ -9,7 +9,10 @@ dependencies = [
     "mlx-audio>=0.5.1",
     "numpy>=2.0",
     "omegaconf>=2.3.1",
+    "pymupdf>=1.28.2",
+    "pysbd>=0.3.4",
     "torch>=2.14.0",
+    "typer>=0.27.2",
 ]
 
 [project.optional-dependencies]
