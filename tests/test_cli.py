@@ -131,3 +131,12 @@ def test_convert_does_not_demand_espeak_for_russian(tmp_path, monkeypatch):
         ],
     )
     assert result.exit_code == 0, result.output
+
+
+def test_help_lists_each_command_once():
+    """Команда регистрируется дважды, и typer показывает служебное имя функции."""
+    output = runner.invoke(app, ["--help"]).output
+    for name in ("convert", "chapters", "voices", "serve"):
+        assert f" {name} " in output or f"│ {name}" in output
+    assert "convert-book" not in output
+    assert "chapters-of" not in output

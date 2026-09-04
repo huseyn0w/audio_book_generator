@@ -84,7 +84,6 @@ def voices(
         typer.echo(f"  {v.id:16} {v.gender}")
 
 
-@app.command()
 def convert_book(
     path: Annotated[Path, typer.Argument(help="Файл книги", exists=True)],
     lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
@@ -155,7 +154,6 @@ def convert_book(
         typer.echo(f"копия в iCloud: {ICLOUD_AUDIOBOOKS / target.name}")
 
 
-@app.command()
 def chapters_of(
     path: Annotated[Path, typer.Argument(help="Файл книги", exists=True)],
     lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
@@ -168,17 +166,6 @@ def chapters_of(
     for number, chapter in enumerate(document.chapters, start=1):
         minutes = chapter.char_count() / 15 / 60
         typer.echo(f"  {number:3}  {minutes:5.0f} мин  {chapter.title[:60]}")
-
-
-app.command(name="chapters")(chapters_of)
-
-
-# typer берёт имя команды из имени функции, а нужна именно "convert"
-app.command(name="convert")(convert_book)
-
-
-if __name__ == "__main__":
-    app()
 
 
 @app.command()
@@ -199,3 +186,13 @@ def serve(
 
     typer.echo(f"открой http://{host}:{port}")
     uvicorn.run("book2audio.web.main:app", host=host, port=port, reload=reload)
+
+
+# typer берёт имя команды из имени функции, поэтому регистрируем явно:
+# нужны "convert" и "chapters", а не "convert-book" и "chapters-of".
+app.command(name="convert")(convert_book)
+app.command(name="chapters")(chapters_of)
+
+
+if __name__ == "__main__":
+    app()
