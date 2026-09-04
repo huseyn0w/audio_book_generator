@@ -159,3 +159,39 @@ def test_gender_is_respected_when_choosing_a_fallback(runner, tmp_path):
     chosen = runner.voice_for(FakeEngine(), job)
     by_id = {v.id: v.gender for v in FakeEngine().voices()}
     assert by_id[chosen] == "male"
+
+
+def test_runner_survives_one_failed_chunk(store, tmp_path, monkeypatch):
+    """Сорванный чанк не должен ронять задачу, которая шла полчаса."""
+    import json
+
+    from book2audio.tts import cache as cache_module
+
+    original = cache_module.SynthCache.synth
+    calls = {"n": 0}
+
+    def flaky(self, engine, text, voice):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("движок сорвался")
+        return original(self, engine, text, voice)
+
+    monkeypatch.setattr(cache_module.SynthCache, "synth", flaky)
+    monkeypatch.setattr(cache_module, "ATTEMPTS", 1)
+
+    worker = Runner(
+        store, work_root=tmp_path / "work", out_root=tmp_path / "out", engine_name="fake"
+    )
+    try:
+        job = store.create(source=FIXTURES / "book_ru.fb2", language="ru", gender="female")
+        worker.start_extraction(job.id)
+        assert wait_for(lambda: store.get(job.id).state == State.READY)
+        worker.enqueue(job.id)
+        assert wait_for(lambda: store.get(job.id).state == State.DONE)
+    finally:
+        worker.stop()
+
+    report = json.loads(
+        (tmp_path / "work" / job.id / "synth_report.json").read_text(encoding="utf-8")
+    )
+    assert report["failed"] == 1

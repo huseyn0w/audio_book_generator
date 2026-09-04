@@ -5,6 +5,7 @@
 веб-процесс, не потеряв задачу.
 """
 
+import json
 import shutil
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -171,7 +172,7 @@ class Runner:
             for chunk in chunks:
                 if self.store.is_cancelled(job.id):
                     raise Cancelled
-                parts.append(cache.synth(engine, chunk.text, voice))
+                parts.append(cache.synth_or_silence(engine, chunk.text, voice))
                 if chunk.pause_after > 0:
                     parts.append(gap(chunk.pause_after))
                 done += 1
@@ -182,6 +183,12 @@ class Runner:
             concat(parts, joined, engine.sample_rate)
             built.append(
                 ChapterAudio(chapter.title or f"Глава {index + 1}", joined, wav_duration(joined))
+            )
+
+        # Сорванные чанки стали тишиной. Отчёт лежит рядом с отчётом о чистке.
+        if cache.failures:
+            (work / "synth_report.json").write_text(
+                json.dumps(cache.report(), ensure_ascii=False, indent=2), encoding="utf-8"
             )
 
         self.store.set_progress(job.id, "assemble", total, total)

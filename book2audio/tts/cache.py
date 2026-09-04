@@ -7,7 +7,20 @@
 import hashlib
 from pathlib import Path
 
+from book2audio.audio import silence
 from book2audio.tts.base import TTSEngine
+
+# Сколько раз пробуем один чанк. Движок иногда срывается на нехватке памяти
+# или на одном кривом символе, и повтор чаще всего проходит.
+ATTEMPTS = 3
+
+# Скорость прозы. По ней считается длина тишины вместо сорвавшегося чанка:
+# книга не должна съезжать по таймингу из-за одной дыры.
+CHARS_PER_SECOND = 15.0
+
+# Сколько символов чанка попадает в отчёт. Достаточно, чтобы найти место
+# в книге, и не настолько много, чтобы отчёт стал вторым текстом книги.
+REPORT_CHARS = 200
 
 
 class SynthCache:
@@ -16,6 +29,7 @@ class SynthCache:
         self.root.mkdir(parents=True, exist_ok=True)
         self.hits = 0
         self.misses = 0
+        self.failures: list[str] = []
 
     def key(self, text: str, voice: str, engine: TTSEngine) -> str:
         """Версия движка входит в ключ: смена модели обязана инвалидировать кэш."""
@@ -45,3 +59,34 @@ class SynthCache:
 
         self.misses += 1
         return target
+
+    def synth_or_silence(self, engine: TTSEngine, text: str, voice: str) -> Path:
+        """Как synth, но сорвавшийся чанк не роняет книгу, а становится тишиной.
+
+        ValueError не ретраится: неизвестный голос и пустой текст от повтора
+        не чинятся, а подмена тишиной превратила бы всю книгу в тишину.
+        """
+        for attempt in range(ATTEMPTS):
+            try:
+                return self.synth(engine, text, voice)
+            except ValueError:
+                raise
+            except Exception:  # noqa: BLE001 — движок волен упасть чем угодно
+                if attempt == ATTEMPTS - 1:
+                    break
+
+        self.failures.append(text)
+        # Тишина лежит вне кэша чанков: иначе после починки движка книга
+        # молча пересобралась бы с теми же дырами.
+        gaps = self.root / "failed"
+        gaps.mkdir(exist_ok=True)
+        gap = gaps / f"{self.key(text, voice, engine)}.wav"
+        silence(gap, len(text) / CHARS_PER_SECOND, engine.sample_rate)
+        return gap
+
+    def report(self) -> dict:
+        """Что не синтезировалось. Пишется рядом с отчётом о чистке."""
+        return {
+            "failed": len(self.failures),
+            "chunks": [text[:REPORT_CHARS] for text in self.failures],
+        }

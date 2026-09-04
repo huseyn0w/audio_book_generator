@@ -125,12 +125,19 @@ def convert(
     for chunks_of_chapter in grouped:
         parts: list[Path] = []
         for chunk in chunks_of_chapter:
-            parts.append(cache.synth(engine, chunk.text, voice))
+            parts.append(cache.synth_or_silence(engine, chunk.text, voice))
             if chunk.pause_after > 0:
                 parts.append(gap_for(chunk.pause_after))
             done += 1
             report("synth", done, total)
         chapter_parts.append(parts)
+
+    # Отчёт пишется только когда есть о чём: пустой файл рядом с книгой
+    # приучает на него не смотреть.
+    if cache.failures:
+        (work_dir / "synth_report.json").write_text(
+            json.dumps(cache.report(), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     report("assemble", 0, 1)
     chapters_dir = work_dir / "chapters"

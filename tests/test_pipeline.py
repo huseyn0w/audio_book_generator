@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,17 @@ from book2audio.tts.fake import FakeEngine
 FIXTURES = Path(__file__).parent / "fixtures"
 TOC_PDF = FIXTURES / "toc_ru.pdf"
 SCANNED_PDF = FIXTURES / "scanned_ru.pdf"
+
+
+def _fb2(title: str, paragraph: str) -> str:
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">'
+        "<description><title-info><book-title>Книга</book-title>"
+        "<lang>ru</lang></title-info></description>"
+        f"<body><section><title><p>{title}</p></title>"
+        f"<p>{paragraph}</p></section></body></FictionBook>"
+    )
 
 
 def test_convert_produces_an_m4b_with_chapters(tmp_path):
@@ -158,3 +170,48 @@ def test_convert_can_skip_cleaning(tmp_path):
     )
     assert out.exists()
     assert not (tmp_path / ".work" / "clean_report.json").exists()
+
+
+class OneBadChunkEngine(FakeEngine):
+    """Срывается на чанке с заданной подстрокой, остальное синтезирует."""
+
+    def __init__(self, poison: str) -> None:
+        self.poison = poison
+
+    def synth(self, text: str, voice: str, out_path) -> None:
+        if self.poison in text:
+            raise RuntimeError("движок сорвался")
+        super().synth(text, voice, out_path)
+
+
+def test_convert_survives_one_failed_chunk(tmp_path):
+    book = tmp_path / "book.fb2"
+    book.write_text(_fb2("Первая глава", "Обычный абзац."), encoding="utf-8")
+    work = tmp_path / "work"
+    out = convert(
+        book,
+        language="ru",
+        voice="fake_a",
+        out_dir=tmp_path / "out",
+        engine=OneBadChunkEngine("Обычный"),
+        work_dir=work,
+    )
+    assert out.exists()
+    report = json.loads((work / "synth_report.json").read_text(encoding="utf-8"))
+    assert report["failed"] == 1
+    assert "Обычный" in report["chunks"][0]
+
+
+def test_convert_writes_no_synth_report_when_nothing_failed(tmp_path):
+    book = tmp_path / "book.fb2"
+    book.write_text(_fb2("Первая глава", "Обычный абзац."), encoding="utf-8")
+    work = tmp_path / "work"
+    convert(
+        book,
+        language="ru",
+        voice="fake_a",
+        out_dir=tmp_path / "out",
+        engine=FakeEngine(),
+        work_dir=work,
+    )
+    assert not (work / "synth_report.json").exists()

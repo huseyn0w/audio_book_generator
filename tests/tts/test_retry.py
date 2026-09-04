@@ -1,0 +1,79 @@
+"""Один сорвавшийся чанк не должен стоить всей книги."""
+
+import wave
+from pathlib import Path
+
+import pytest
+
+from book2audio.tts.cache import SynthCache
+from book2audio.tts.fake import FakeEngine
+
+
+class FlakyEngine(FakeEngine):
+    """Падает заданное число раз, потом синтезирует нормально."""
+
+    def __init__(self, failures: int) -> None:
+        self.left = failures
+        self.calls = 0
+
+    def synth(self, text: str, voice: str, out_path: Path) -> None:
+        self.calls += 1
+        if self.left > 0:
+            self.left -= 1
+            raise RuntimeError("движок сорвался")
+        super().synth(text, voice, out_path)
+
+
+def duration(path: Path) -> float:
+    with wave.open(str(path)) as handle:
+        return handle.getnframes() / handle.getframerate()
+
+
+def test_retry_succeeds_on_second_attempt(tmp_path):
+    engine = FlakyEngine(failures=1)
+    cache = SynthCache(tmp_path)
+    path = cache.synth_or_silence(engine, "привет" * 20, "fake_a")
+    assert engine.calls == 2
+    assert cache.failures == []
+    assert duration(path) > 0.5
+
+
+def test_falls_back_to_silence_after_three_attempts(tmp_path):
+    engine = FlakyEngine(failures=99)
+    cache = SynthCache(tmp_path)
+    path = cache.synth_or_silence(engine, "x" * 150, "fake_a")
+    assert engine.calls == 3
+    assert cache.failures == ["x" * 150]
+    assert duration(path) == pytest.approx(10.0, rel=0.01)
+
+
+def test_silence_keeps_engine_sample_rate(tmp_path):
+    path = SynthCache(tmp_path).synth_or_silence(FlakyEngine(failures=99), "текст", "fake_a")
+    with wave.open(str(path)) as handle:
+        assert handle.getframerate() == FakeEngine.sample_rate
+        assert handle.getnchannels() == 1
+
+
+def test_bad_voice_is_not_retried(tmp_path):
+    """Неизвестный голос от повтора не чинится, а тишина скрыла бы ошибку."""
+    cache = SynthCache(tmp_path)
+    with pytest.raises(ValueError, match="неизвестный голос"):
+        cache.synth_or_silence(FakeEngine(), "привет", "нет такого")
+    assert cache.failures == []
+
+
+def test_failed_chunk_is_not_cached_as_silence(tmp_path):
+    """Тишина лежит отдельно: после починки движка книга должна пересинтезироваться."""
+    cache = SynthCache(tmp_path)
+    cache.synth_or_silence(FlakyEngine(failures=99), "привет", "fake_a")
+    assert not cache.path("привет", "fake_a", FakeEngine()).exists()
+
+
+def test_report_lists_failed_chunks(tmp_path):
+    cache = SynthCache(tmp_path)
+    cache.synth_or_silence(FlakyEngine(failures=99), "первый" * 30, "fake_a")
+    cache.synth_or_silence(FakeEngine(), "второй", "fake_a")
+    report = cache.report()
+    assert report["failed"] == 1
+    assert report["chunks"][0].startswith("первый")
+    assert len(report["chunks"][0]) <= 200
