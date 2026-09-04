@@ -16,8 +16,9 @@ def store(tmp_path):
 
 @pytest.fixture
 def runner(store, tmp_path):
-    worker = Runner(store, work_root=tmp_path / "work", out_root=tmp_path / "out",
-                    engine_name="fake")
+    worker = Runner(
+        store, work_root=tmp_path / "work", out_root=tmp_path / "out", engine_name="fake"
+    )
     yield worker
     worker.stop()
 
@@ -115,5 +116,46 @@ def test_runner_handles_one_job_at_a_time(store, runner):
     second = store.create(source=FIXTURES / "toc_ru.pdf", language="ru", gender="female")
     for job in (first, second):
         runner.start_extraction(job.id)
-    assert wait_for(lambda: all(store.get(j.id).state == State.READY for j in (first, second)),
-                    seconds=40)
+    assert wait_for(
+        lambda: all(store.get(j.id).state == State.READY for j in (first, second)), seconds=40
+    )
+
+
+# --- выбор голоса ---
+
+
+def test_voice_is_chosen_from_what_the_engine_actually_has(store, runner, tmp_path):
+    """Голос по умолчанию задан для Silero, но движок может быть другим."""
+    from book2audio.tts.fake import FakeEngine
+    from book2audio.web.jobs import Job
+
+    job = Job(id="x", source=tmp_path / "b.pdf", language="ru", gender="female")
+    assert runner.voice_for(FakeEngine(), job) in {v.id for v in FakeEngine().voices()}
+
+
+def test_explicit_voice_wins_when_the_engine_has_it(runner, tmp_path):
+    from book2audio.tts.fake import FakeEngine
+    from book2audio.web.jobs import Job
+
+    job = Job(id="x", source=tmp_path / "b.pdf", language="ru", gender="male", voice="fake_b")
+    assert runner.voice_for(FakeEngine(), job) == "fake_b"
+
+
+def test_unknown_voice_falls_back_instead_of_crashing(runner, tmp_path):
+    from book2audio.tts.fake import FakeEngine
+    from book2audio.web.jobs import Job
+
+    job = Job(
+        id="x", source=tmp_path / "b.pdf", language="ru", gender="female", voice="no-such-voice"
+    )
+    assert runner.voice_for(FakeEngine(), job) in {v.id for v in FakeEngine().voices()}
+
+
+def test_gender_is_respected_when_choosing_a_fallback(runner, tmp_path):
+    from book2audio.tts.fake import FakeEngine
+    from book2audio.web.jobs import Job
+
+    job = Job(id="x", source=tmp_path / "b.pdf", language="ru", gender="male")
+    chosen = runner.voice_for(FakeEngine(), job)
+    by_id = {v.id: v.gender for v in FakeEngine().voices()}
+    assert by_id[chosen] == "male"

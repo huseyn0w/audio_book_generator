@@ -98,12 +98,8 @@ def convert_book(
     chapters: Annotated[
         str | None, typer.Option(help="Диапазон глав, например 1-3. Для EPUB и FB2")
     ] = None,
-    audio_format: Annotated[
-        str, typer.Option("--format", help="m4b или mp3")
-    ] = "m4b",
-    icloud: Annotated[
-        bool, typer.Option(help="Копировать результат в папку iCloud Drive")
-    ] = True,
+    audio_format: Annotated[str, typer.Option("--format", help="m4b или mp3")] = "m4b",
+    icloud: Annotated[bool, typer.Option(help="Копировать результат в папку iCloud Drive")] = True,
 ) -> None:
     """Превращает книгу в аудио."""
     tts = build_engine(lang, engine)

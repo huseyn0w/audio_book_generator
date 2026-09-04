@@ -129,8 +129,8 @@ def test_state_values_are_stable_strings():
 
 
 def test_job_dataclass_reports_whether_it_is_running():
-    job = Job(id="x", source="/tmp/a.pdf", language="ru", gender="female",
-              state=State.SYNTHESIZING)
+    job = Job(id="x", source="/tmp/a.pdf", language="ru", gender="female", state=State.SYNTHESIZING)
     assert job.is_active()
-    assert not Job(id="x", source="/tmp/a.pdf", language="ru", gender="female",
-                   state=State.DONE).is_active()
+    assert not Job(
+        id="x", source="/tmp/a.pdf", language="ru", gender="female", state=State.DONE
+    ).is_active()

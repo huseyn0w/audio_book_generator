@@ -104,8 +104,27 @@ class Runner:
             for entry in review
             if entry.get("include", True) and entry.get("text", "").strip()
         ]
-        return Document(title=job.title or job.source.stem, author=None,
-                        language=job.language, chapters=chapters)
+        return Document(
+            title=job.title or job.source.stem,
+            author=None,
+            language=job.language,
+            chapters=chapters,
+        )
+
+    def voice_for(self, engine: TTSEngine, job: Job) -> str:
+        """Голос, который движок действительно умеет.
+
+        Значения по умолчанию заданы для Silero и Kokoro, но движок может
+        быть другим, а сохранённый голос устареть после смены модели.
+        """
+        available = {v.id: v.gender for v in engine.voices()}
+        if job.voice and job.voice in available:
+            return job.voice
+        default = pick_default(job.language, job.gender) if job.gender else None
+        if default in available:
+            return default
+        same_gender = [vid for vid, gender in available.items() if gender == job.gender]
+        return same_gender[0] if same_gender else next(iter(available))
 
     def _synthesize(self, job: Job) -> None:
         self.store.set_state(job.id, State.SYNTHESIZING)
@@ -114,7 +133,7 @@ class Runner:
             raise ValueError("нечего озвучивать: не выбрано ни одной главы")
 
         engine = self._engine_for(job.language)
-        voice = job.voice or pick_default(job.language, job.gender)
+        voice = self.voice_for(engine, job)
 
         grouped = [
             chunk_document(

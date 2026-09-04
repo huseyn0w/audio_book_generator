@@ -37,9 +37,16 @@ packages = ["book2audio"]
 
 [tool.pytest.ini_options]
 markers = ["slow: требует сеть или веса моделей"]
+asyncio_mode = "auto"
 addopts = "-m 'not slow'"
 testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.4.0",
+    "pytest-timeout>=2.4.0",
+]

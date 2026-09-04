@@ -110,25 +110,44 @@ class JobStore:
         return db
 
     def create(self, source: Path, language: str, gender: str, **extra) -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], source=source, language=language,
-                  gender=gender, **extra)
+        job = Job(
+            id=uuid.uuid4().hex[:12], source=source, language=language, gender=gender, **extra
+        )
         with self._connect() as db:
             db.execute(
                 "INSERT INTO jobs (id, source, language, gender, state, voice, "
                 "selection, audio_format, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                (job.id, str(job.source), job.language, job.gender, job.state.value,
-                 job.voice, job.selection, job.audio_format, job.created_at),
+                (
+                    job.id,
+                    str(job.source),
+                    job.language,
+                    job.gender,
+                    job.state.value,
+                    job.voice,
+                    job.selection,
+                    job.audio_format,
+                    job.created_at,
+                ),
             )
         return job
 
     def _row_to_job(self, row: sqlite3.Row) -> Job:
         return Job(
-            id=row["id"], source=row["source"], language=row["language"],
-            gender=row["gender"], state=State(row["state"]), voice=row["voice"],
-            selection=row["selection"], audio_format=row["audio_format"],
-            stage=row["stage"], done=row["done"], total=row["total"],
-            error=row["error"], result=Path(row["result"]) if row["result"] else None,
-            title=row["title"], created_at=row["created_at"],
+            id=row["id"],
+            source=row["source"],
+            language=row["language"],
+            gender=row["gender"],
+            state=State(row["state"]),
+            voice=row["voice"],
+            selection=row["selection"],
+            audio_format=row["audio_format"],
+            stage=row["stage"],
+            done=row["done"],
+            total=row["total"],
+            error=row["error"],
+            result=Path(row["result"]) if row["result"] else None,
+            title=row["title"],
+            created_at=row["created_at"],
         )
 
     def get(self, job_id: str) -> Job | None:
@@ -193,9 +212,7 @@ class JobStore:
                 f"нельзя перевести задачу из {current.state.value} в {State.CANCELLED.value}"
             )
         with self._connect() as db:
-            db.execute(
-                "UPDATE jobs SET state = ? WHERE id = ?", (State.CANCELLED.value, job_id)
-            )
+            db.execute("UPDATE jobs SET state = ? WHERE id = ?", (State.CANCELLED.value, job_id))
 
     def is_cancelled(self, job_id: str) -> bool:
         job = self.get(job_id)
