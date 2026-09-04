@@ -30,7 +30,7 @@ def test_report_serializes_to_json_friendly_dict():
     pages = [page(1, [blk("Текст.")])]
     _, report = clean_pages(pages)
     data = report.as_dict()
-    assert set(data) == {"kept", "dropped", "chars_before", "chars_after"}
+    assert set(data) == {"kept", "dropped", "chars_before", "chars_after", "summary"}
     assert isinstance(data["dropped"], dict)
 
 

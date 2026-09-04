@@ -39,6 +39,12 @@
             <option value="male">Мужской</option>
           </select>
         </div>
+        <div style="flex:1;min-width:160px">
+          <label for="pages">Страницы</label>
+          <input id="pages" type="text" inputmode="numeric" placeholder="вся книга"
+                 aria-describedby="pages-hint">
+          <span id="pages-hint" class="hint">22-40, только PDF</span>
+        </div>
         <div style="flex:1.8;min-width:280px">
           <label for="voice">Диктор</label>
           <div class="voice-row">
@@ -56,6 +62,8 @@
     <h2 id="h-review">Проверьте текст</h2>
     <p class="muted">Синтез займёт время, поэтому мусор лучше убрать сейчас.
        Снимите галочки с ненужных глав, поправьте текст прямо здесь.</p>
+
+    <p id="review-warning" class="warning" hidden role="alert"></p>
 
     <div class="card">
       <div class="stat">
@@ -101,6 +109,7 @@
       <div id="done-title" class="mono"></div>
       <audio id="player" controls preload="none"></audio>
       <p class="path" id="icloud-path"></p>
+      <p class="muted" id="done-report"></p>
     </div>
     <div class="row">
       <button id="download">Скачать</button>

@@ -21,7 +21,7 @@ from book2audio.assemble import (
 from book2audio.audio import concat, silence
 from book2audio.chunker import chunk_document
 from book2audio.extract.base import NoTextLayer
-from book2audio.models import Block, Chapter, Document
+from book2audio.models import Block, Chapter, Document, parse_page_spec
 from book2audio.pipeline import ICLOUD_AUDIOBOOKS, pick_extractor
 from book2audio.tts.base import TTSEngine, pick_default
 from book2audio.tts.cache import SynthCache
@@ -75,14 +75,22 @@ class Runner:
 
     def _extract(self, job: Job) -> None:
         self.store.set_state(job.id, State.EXTRACTING)
+        work = self.work_root / job.id
+        work.mkdir(parents=True, exist_ok=True)
         extractor = pick_extractor(job.source, clean=True, language=job.language)
-        document = extractor.extract(job.source)
+        document = extractor.extract(job.source, parse_page_spec(job.selection))
+
+        # Через браузер не видно, что именно чистка выбросила. Отчёт кладём
+        # рядом с отчётом о синтезе, отдаётся отдельным роутом.
+        report = getattr(extractor, "report", None)
+        if report is not None:
+            (work / "clean_report.json").write_text(
+                json.dumps(report.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+            )
         self.store.set_title(job.id, document.title)
         # Синтез пересобирает документ из правленого текста, обложка туда
         # не попадает. Кладём её на диск сейчас, пока она ещё в руках.
         if document.cover:
-            work = self.work_root / job.id
-            work.mkdir(parents=True, exist_ok=True)
             (work / "cover.jpg").write_bytes(document.cover)
         self.store.save_review(
             job.id,

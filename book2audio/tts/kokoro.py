@@ -34,6 +34,8 @@ GENDER_BY_LETTER = {"f": "female", "m": "male"}
 
 class KokoroEngine:
     name = "kokoro"
+    # Замер на M-серии. Kokoro заметно тяжелее Silero.
+    realtime = 5.8
     sample_rate = 24000
 
     def __init__(self, model_repo: str = "mlx-community/Kokoro-82M-bf16") -> None:

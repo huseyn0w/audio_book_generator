@@ -7,8 +7,12 @@ locally, no cloud and no paid APIs.
 
 Takes a book, strips running heads, page numbers, footnotes and figure
 captions, shows you the result to check, reads it aloud and builds an m4b
-with chapters. The finished file lands in iCloud Drive, where it shows up
-in Files on the iPhone by itself.
+with chapters and cover art. The finished file lands in iCloud Drive, where
+it shows up in Files on the iPhone by itself.
+
+The review screen tells you how long the audio will be, how long the
+synthesis will take, and warns you if the text is not in the language you
+picked. The done screen shows what the cleaning removed.
 
 ## Install
 
@@ -66,6 +70,9 @@ Picked by a blind comparison of 45 voices, see
 Silero v5 places Russian stress marks and resolves homographs on its own.
 Without that, Russian speech gets tiring after twenty minutes.
 
+The language you pick drives normalization as well as the voice, so numbers
+in an English book are read in English.
+
 The web interface has a Listen button next to the voice picker: one phrase
 in the selected voice, synthesized on the spot.
 
@@ -113,6 +120,7 @@ protocols hold the whole thing together: `Extractor` returns a `Document`,
 |---|---|
 | `extract/` | PDF via PyMuPDF, EPUB via ebooklib, FB2 via lxml |
 | `clean/` | layout heuristics, text repair, normalization for speech |
+| `script_check.py` | warns when the text is not in the language you picked |
 | `chunker.py` | sentences into chunks of up to 800 characters, pauses |
 | `tts/` | Silero, Kokoro, sha256 cache |
 | `assemble.py` | ffmpeg, m4b with chapters and cover art, mp3 per chapter |

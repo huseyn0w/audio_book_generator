@@ -276,3 +276,93 @@ def test_synthesize_refuses_when_disk_is_full(client, monkeypatch):
     response = client.post(f"/api/jobs/{job_id}/synthesize", json={})
     assert response.status_code == 507
     assert "мало места" in response.json()["detail"]
+
+
+# --- отчёт, оценки и предупреждение о языке ---
+
+
+def test_review_estimates_synthesis_time(client):
+    """«2 часа ждать» и «10 минут ждать» это разные решения."""
+    job_id = upload(client)
+    wait_for_state(client, job_id, "ready_for_review")
+    body = client.get(f"/api/jobs/{job_id}/review").json()
+    assert body["minutes"] > 0
+    assert body["synth_minutes"] > 0
+    assert body["synth_minutes"] < body["minutes"]
+
+
+def test_review_warns_about_the_wrong_language(client):
+    job_id = upload(client, name="typeset_en.pdf", language="ru")
+    wait_for_state(client, job_id, "ready_for_review")
+    body = client.get(f"/api/jobs/{job_id}/review").json()
+    assert body["warning"]
+    assert "английские" in body["warning"]
+
+
+def test_review_is_quiet_when_the_language_matches(client):
+    job_id = upload(client, language="ru")
+    wait_for_state(client, job_id, "ready_for_review")
+    assert client.get(f"/api/jobs/{job_id}/review").json()["warning"] is None
+
+
+def test_clean_report_is_available_over_http(client):
+    job_id = upload(client)
+    wait_for_state(client, job_id, "ready_for_review")
+    body = client.get(f"/api/jobs/{job_id}/report").json()
+    assert body["clean"]["chars_before"] > 0
+    assert isinstance(body["clean"]["dropped"], dict)
+    assert body["clean"]["summary"]
+
+
+def test_report_has_no_synth_section_before_synthesis(client):
+    job_id = upload(client)
+    wait_for_state(client, job_id, "ready_for_review")
+    assert client.get(f"/api/jobs/{job_id}/report").json()["synth"] is None
+
+
+def test_report_404_for_an_unknown_job(client):
+    assert client.get("/api/jobs/нет-такой/report").status_code == 404
+
+
+# --- диапазон страниц ---
+
+
+def test_upload_accepts_a_page_range(client):
+    with open(FIXTURES / "toc_ru.pdf", "rb") as handle:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("toc_ru.pdf", handle, "application/pdf")},
+            data={"language": "ru", "gender": "female", "pages": "1-1"},
+        )
+    assert response.status_code == 201
+    job_id = response.json()["id"]
+    wait_for_state(client, job_id, "ready_for_review")
+    body = client.get(f"/api/jobs/{job_id}/review").json()
+    assert body["chars"] > 0
+
+    whole = upload(client)
+    wait_for_state(client, whole, "ready_for_review")
+    assert body["chars"] < client.get(f"/api/jobs/{whole}/review").json()["chars"]
+
+
+def test_upload_rejects_a_broken_page_range(client):
+    with open(FIXTURES / "toc_ru.pdf", "rb") as handle:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("toc_ru.pdf", handle, "application/pdf")},
+            data={"language": "ru", "gender": "female", "pages": "20-10"},
+        )
+    assert response.status_code == 400
+    assert "диапазон" in response.json()["detail"]
+
+
+def test_page_range_is_ignored_for_formats_without_pages(client):
+    """В EPUB и FB2 страниц нет. Молча притворяться, что есть, вредно."""
+    with open(FIXTURES / "book_ru.fb2", "rb") as handle:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("book_ru.fb2", handle, "application/octet-stream")},
+            data={"language": "ru", "gender": "female", "pages": "1-5"},
+        )
+    assert response.status_code == 400
+    assert "страниц" in response.json()["detail"]

@@ -57,3 +57,37 @@ def test_frontend_has_a_listen_button():
     static = Path("book2audio/web/static")
     assert 'id="listen"' in (static / "index.html").read_text(encoding="utf-8")
     assert "/api/sample" in (static / "app.js").read_text(encoding="utf-8")
+
+
+# --- предупреждение, оценка и отчёт в интерфейсе ---
+
+
+def _static(name: str) -> str:
+    return (Path("book2audio/web/static") / name).read_text(encoding="utf-8")
+
+
+def test_review_screen_has_a_warning_slot():
+    assert 'id="review-warning"' in _static("index.html")
+    assert "review-warning" in _static("app.js")
+
+
+def test_review_screen_shows_synthesis_time():
+    assert "synth_minutes" in _static("app.js")
+
+
+def test_done_screen_shows_the_clean_report():
+    assert 'id="done-report"' in _static("index.html")
+    assert "/report" in _static("app.js")
+
+
+def test_upload_screen_has_a_page_range_field():
+    assert 'id="pages"' in _static("index.html")
+    assert '"pages"' in _static("app.js")
+
+
+def test_synthesis_time_agrees_with_the_sentence():
+    """Строка читается как «синтез займёт около ...», значит родительный падеж."""
+    js = _static("app.js")
+    assert "займёт около ${synthTime" in js
+    assert 'return "минуту"' not in js
+    assert 'return "минуты"' in js

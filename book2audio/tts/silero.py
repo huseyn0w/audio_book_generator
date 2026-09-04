@@ -66,6 +66,9 @@ ALLOWED_SAMPLE_RATES = (8000, 24000, 48000)
 
 class SileroEngine:
     name = "silero"
+    # Во сколько раз синтез быстрее реального времени. Замер на M-серии
+    # дал x32-x46, берём нижнюю границу: обещать меньше лучше, чем больше.
+    realtime = 32.0
 
     def __init__(self, sample_rate: int = 24000, model_id: str = "v5_5_ru") -> None:
         if model_id not in VOICES:

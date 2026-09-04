@@ -146,7 +146,9 @@ h2 {
   display: flex;
   gap: var(--space-4);
   flex-wrap: wrap;
-  align-items: flex-end;
+  /* По верху, а не по низу: подсказка под одним полем иначе роняет
+     подписи всех остальных на разную высоту. */
+  align-items: flex-start;
 }
 
 label {
@@ -327,4 +329,24 @@ audio { width: 100%; margin-top: var(--space-4); }
 
 .voice-row button {
   flex: 0 0 auto;
+}
+
+/* Предупреждение о языке. Не ошибка: книга озвучится, но скорее всего не так,
+   как человек ожидает, поэтому тон мягче красного. */
+.warning {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+/* Подсказка под полем: формат диапазона не угадывается, а ошибка стоит
+   похода на сервер и обратно. */
+.hint {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 0.8125rem;
+  color: var(--text-subtle);
 }

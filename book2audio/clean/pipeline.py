@@ -37,6 +37,7 @@ class CleanReport:
             "dropped": dict(self.dropped),
             "chars_before": self.chars_before,
             "chars_after": self.chars_after,
+            "summary": self.summary(),
         }
 
     def summary(self) -> str:

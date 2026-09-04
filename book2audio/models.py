@@ -78,3 +78,21 @@ class Selection:
             return []
         first, last = self.pages
         return list(range(first - 1, last))
+
+
+def parse_page_spec(value: str | None) -> Selection | None:
+    """Разбирает «10-20» или «7». Пусто значит вся книга.
+
+    Живёт рядом с Selection, а не в CLI: тот же разбор нужен веб-форме,
+    а дублировать правила в двух местах значит разойтись в третьем.
+    """
+    if not value or not value.strip():
+        return None
+    parts = value.replace(" ", "").split("-")
+    if len(parts) > 2 or not all(part.isdigit() for part in parts):
+        raise ValueError(f"диапазон страниц должен быть вида 10-20 или 7, а не {value!r}")
+    first = int(parts[0])
+    last = int(parts[-1])
+    if first < 1 or first > last:
+        raise ValueError(f"неверный диапазон страниц: {value!r}")
+    return Selection(pages=(first, last))

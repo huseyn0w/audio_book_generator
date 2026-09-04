@@ -73,6 +73,7 @@ async function upload(file) {
   body.append("file", file);
   body.append("language", $("language").value);
   body.append("gender", $("gender").value);
+  body.append("pages", $("pages").value.trim());
 
   const response = await fetch("/api/jobs", { method: "POST", body });
   const data = await response.json();
@@ -119,6 +120,14 @@ function wireDropzone() {
 
 // --- предпросмотр ---
 
+// «0.3 мин» читается хуже, чем «минуты», а «95 мин» хуже, чем «1 ч 35 мин».
+// Формы согласованы с «займёт около ...», отсюда родительный падеж.
+function synthTime(minutes) {
+  if (minutes < 1) return "минуты";
+  if (minutes < 60) return `${Math.round(minutes)} мин`;
+  return `${Math.floor(minutes / 60)} ч ${Math.round(minutes % 60)} мин`;
+}
+
 async function openReview() {
   const response = await fetch(`/api/jobs/${jobId}/review`);
   if (!response.ok) return;
@@ -126,7 +135,12 @@ async function openReview() {
 
   $("review-title").textContent = data.title || "";
   $("review-size").textContent =
-    `${data.chars.toLocaleString("ru")} символов, примерно ${data.minutes} мин звучания`;
+    `${data.chars.toLocaleString("ru")} символов, примерно ${data.minutes} мин звучания, ` +
+    `синтез займёт около ${synthTime(data.synth_minutes)}`;
+
+  const warning = $("review-warning");
+  warning.textContent = data.warning || "";
+  warning.hidden = !data.warning;
 
   const host = $("chapters");
   host.innerHTML = "";
@@ -250,11 +264,28 @@ function render(job) {
   }
 }
 
+async function showReport(id) {
+  const box = $("done-report");
+  box.textContent = "";
+  try {
+    const response = await fetch(`/api/jobs/${id}/report`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const lines = [];
+    if (data.clean?.summary) lines.push(data.clean.summary);
+    if (data.synth?.failed) lines.push(`не озвучилось кусков: ${data.synth.failed}`);
+    box.textContent = lines.join(". ");
+  } catch {
+    // Отчёт это справка, а не результат. Молчим, книга уже готова.
+  }
+}
+
 function finish(job) {
   $("done-title").textContent = job.title || "";
   $("player").src = `/api/jobs/${jobId}/download`;
   $("icloud-path").textContent =
     "Копия в iCloud Drive → Audiobooks. Появится в Файлах на iPhone.";
+  showReport(jobId);
   show("done");
 }
 

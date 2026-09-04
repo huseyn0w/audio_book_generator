@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from book2audio.extract.base import NoTextLayer
-from book2audio.models import Selection
+from book2audio.models import Selection, parse_page_spec
 from book2audio.pipeline import ICLOUD_AUDIOBOOKS, Progress, convert
 from book2audio.preflight import INSTALL, MissingTool, check_tools, missing_tools
 from book2audio.tts.base import TTSEngine, pick_default
@@ -39,19 +39,11 @@ def parse_chapters(value: str | None) -> Selection | None:
 
 
 def parse_pages(value: str | None) -> Selection | None:
-    """Разбирает 10-20 или 7. Нумерация с единицы включительно."""
-    if not value:
-        return None
+    """Разбирает 10-20 или 7. Правила общие с веб-формой, лежат в models."""
     try:
-        if "-" in value:
-            first, last = (int(part) for part in value.split("-", 1))
-        else:
-            first = last = int(value)
-        return Selection(pages=(first, last))
+        return parse_page_spec(value)
     except ValueError as exc:
-        raise typer.BadParameter(
-            f"диапазон страниц должен быть вида 10-20 или 7, а не {value!r}"
-        ) from exc
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def build_engine(language: str, engine_name: str = "") -> TTSEngine:

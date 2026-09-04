@@ -11,8 +11,10 @@ from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from book2audio.models import parse_page_spec
 from book2audio.pipeline import EXTRACTORS, ICLOUD_AUDIOBOOKS
 from book2audio.preflight import INSTALL, NotEnoughSpace, check_space, missing_tools
+from book2audio.script_check import language_warning
 from book2audio.tts.base import DEFAULTS
 from book2audio.tts.cache import SynthCache
 from book2audio.web.jobs import JobStore, State
@@ -139,6 +141,7 @@ def create_app(
         file: Annotated[UploadFile, File()],
         language: Annotated[str, Form()] = "ru",
         gender: Annotated[str, Form()] = "female",
+        pages: Annotated[str, Form()] = "",
     ) -> dict:
         suffix = Path(file.filename or "").suffix.lower()
         if suffix not in EXTRACTORS:
@@ -151,6 +154,17 @@ def create_app(
         if gender not in SUPPORTED_GENDERS:
             raise HTTPException(status_code=400, detail=f"пол {gender} не поддерживается")
 
+        # Страницы есть только в PDF. В EPUB и FB2 их нет, и молча
+        # притворяться, что есть, значит врать про объём работы.
+        if pages.strip() and suffix != ".pdf":
+            raise HTTPException(
+                status_code=400, detail=f"страниц в {suffix} нет, выбирайте главы после разбора"
+            )
+        try:
+            parse_page_spec(pages)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         target = uploads / f"{Path(file.filename).stem[:60]}{suffix}"
         stored = target
         counter = 1
@@ -160,7 +174,7 @@ def create_app(
         with stored.open("wb") as handle:
             shutil.copyfileobj(file.file, handle)
 
-        job = store.create(source=stored, language=language, gender=gender)
+        job = store.create(source=stored, language=language, gender=gender, selection=pages.strip())
         runner.start_extraction(job.id)
         return {"id": job.id}
 
@@ -179,12 +193,33 @@ def create_app(
         if chapters is None:
             raise HTTPException(status_code=409, detail="книга ещё разбирается")
         chars = sum(len(c["text"]) for c in chapters if c.get("include", True))
+        minutes = chars / CHARS_PER_SECOND / 60
+        engine = build_engine(job.language, engine_name)
+        text = " ".join(c["text"] for c in chapters if c.get("include", True))
         return {
             "title": job.title,
             "chapters": chapters,
             "chars": chars,
-            "minutes": round(chars / CHARS_PER_SECOND / 60, 1),
+            "minutes": round(minutes, 1),
+            # Сколько ждать. У Kokoro это в шесть раз дольше, чем у Silero,
+            # и знать об этом надо до нажатия кнопки.
+            "synth_minutes": round(minutes / engine.realtime, 1),
+            "warning": language_warning(text, job.language),
         }
+
+    @app.get("/api/jobs/{job_id}/report")
+    def report(job_id: str) -> dict:
+        """Что выбросила чистка и что не синтезировалось."""
+        job = require(job_id)
+        work = root / "work" / job.id
+
+        def load(name: str) -> dict | None:
+            path = work / name
+            if not path.exists():
+                return None
+            return json.loads(path.read_text(encoding="utf-8"))
+
+        return {"clean": load("clean_report.json"), "synth": load("synth_report.json")}
 
     @app.put("/api/jobs/{job_id}/review")
     def put_review(job_id: str, payload: Annotated[dict, Body()]) -> dict:
@@ -213,7 +248,7 @@ def create_app(
         store.set_options(
             job_id,
             voice=payload.get("voice") or "",
-            selection="",
+            selection=job.selection or "",
             audio_format=payload.get("format", "m4b"),
         )
         runner.enqueue(job_id)
