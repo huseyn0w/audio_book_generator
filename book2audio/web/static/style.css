@@ -321,7 +321,8 @@ audio { width: 100%; margin-top: var(--space-4); }
 
 .voice-row select {
   flex: 1;
-  min-width: 0;
+  /* Имя голоса должно читаться целиком: «по умо.» это не выбор. */
+  min-width: 140px;
 }
 
 .voice-row button {
