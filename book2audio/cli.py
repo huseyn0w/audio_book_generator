@@ -8,7 +8,7 @@ import typer
 
 from book2audio.extract.base import NoTextLayer
 from book2audio.models import Selection
-from book2audio.pipeline import Progress, convert
+from book2audio.pipeline import ICLOUD_AUDIOBOOKS, Progress, convert
 from book2audio.tts.base import TTSEngine, pick_default
 from book2audio.tts.fake import FakeEngine
 from book2audio.tts.kokoro import KokoroEngine
@@ -17,6 +17,24 @@ from book2audio.tts.silero import SileroEngine
 app = typer.Typer(help="Книги в аудиокниги. PDF на входе, wav на выходе.", add_completion=False)
 
 ENGINE_BY_LANGUAGE = {"ru": SileroEngine, "en": KokoroEngine}
+
+
+def parse_chapters(value: str | None) -> Selection | None:
+    """Разбирает 1-3 или 4. Нумерация глав с единицы, как в списке команды chapters."""
+    if not value:
+        return None
+    try:
+        if "-" in value:
+            first, last = (int(part) for part in value.split("-", 1))
+        else:
+            first = last = int(value)
+    except ValueError as exc:
+        raise typer.BadParameter(
+            f"диапазон глав должен быть вида 1-3 или 4, а не {value!r}"
+        ) from exc
+    if first < 1 or first > last:
+        raise typer.BadParameter(f"неверный диапазон глав: {value!r}")
+    return Selection(chapters=tuple(range(first - 1, last)))
 
 
 def parse_pages(value: str | None) -> Selection | None:
@@ -77,6 +95,15 @@ def convert_book(
     clean: Annotated[
         bool, typer.Option(help="Чистить текст. --no-clean покажет книгу как есть")
     ] = True,
+    chapters: Annotated[
+        str | None, typer.Option(help="Диапазон глав, например 1-3. Для EPUB и FB2")
+    ] = None,
+    audio_format: Annotated[
+        str, typer.Option("--format", help="m4b или mp3")
+    ] = "m4b",
+    icloud: Annotated[
+        bool, typer.Option(help="Копировать результат в папку iCloud Drive")
+    ] = True,
 ) -> None:
     """Превращает книгу в аудио."""
     tts = build_engine(lang, engine)
@@ -107,9 +134,11 @@ def convert_book(
             voice=chosen,
             out_dir=out,
             engine=tts,
-            selection=parse_pages(pages),
+            selection=parse_chapters(chapters) if chapters else parse_pages(pages),
             on_progress=show,
             clean=clean,
+            audio_format=audio_format,
+            copy_to=ICLOUD_AUDIOBOOKS if icloud else None,
         )
     except NoTextLayer as exc:
         typer.echo(f"Не получится: {exc}")
@@ -119,6 +148,26 @@ def convert_book(
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"готово за {(time.monotonic() - started) / 60:.1f} мин: {target}")
+    if icloud:
+        typer.echo(f"копия в iCloud: {ICLOUD_AUDIOBOOKS / target.name}")
+
+
+@app.command()
+def chapters_of(
+    path: Annotated[Path, typer.Argument(help="Файл книги", exists=True)],
+    lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
+) -> None:
+    """Показывает список глав с номерами для --chapters."""
+    from book2audio.pipeline import pick_extractor
+
+    document = pick_extractor(path, clean=True).extract(path)
+    typer.echo(f"«{document.title}» — {len(document.chapters)} глав")
+    for number, chapter in enumerate(document.chapters, start=1):
+        minutes = chapter.char_count() / 15 / 60
+        typer.echo(f"  {number:3}  {minutes:5.0f} мин  {chapter.title[:60]}")
+
+
+app.command(name="chapters")(chapters_of)
 
 
 # typer берёт имя команды из имени функции, а нужна именно "convert"

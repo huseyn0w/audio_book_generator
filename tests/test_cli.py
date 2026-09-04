@@ -60,10 +60,11 @@ def test_convert_command_runs_end_to_end_with_the_fake_engine(tmp_path):
             "fake",
             "--voice",
             "fake_a",
+            "--no-icloud",
         ],
     )
     assert result.exit_code == 0, result.stdout
-    assert list(tmp_path.glob("*.wav"))
+    assert list(tmp_path.glob("*.m4b"))
 
 
 def test_convert_command_explains_a_scanned_pdf(tmp_path):

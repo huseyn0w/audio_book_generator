@@ -1,4 +1,3 @@
-import wave
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,9 @@ TOC_PDF = FIXTURES / "toc_ru.pdf"
 SCANNED_PDF = FIXTURES / "scanned_ru.pdf"
 
 
-def test_convert_produces_a_playable_wav(tmp_path):
+def test_convert_produces_an_m4b_with_chapters(tmp_path):
+    import subprocess
+
     out = convert(
         TOC_PDF,
         language="ru",
@@ -22,10 +23,14 @@ def test_convert_produces_a_playable_wav(tmp_path):
         engine=FakeEngine(),
     )
     assert out.exists()
-    with wave.open(str(out)) as w:
-        assert w.getnchannels() == 1
-        assert w.getframerate() == 24000
-        assert w.getnframes() > 24000
+    assert out.suffix == ".m4b"
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_chapters", "-of", "default=nw=1", str(out)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert probe.stdout.count("TAG:title=") >= 1
 
 
 def test_convert_names_the_file_after_the_book(tmp_path):
@@ -38,7 +43,7 @@ def test_convert_names_the_file_after_the_book(tmp_path):
         engine=FakeEngine(),
     )
     assert "инноваци" in out.stem.lower()
-    assert out.suffix == ".wav"
+    assert out.suffix == ".m4b"
 
 
 def test_convert_reports_progress_for_every_stage(tmp_path):
