@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from book2audio.pipeline import EXTRACTORS, ICLOUD_AUDIOBOOKS
 from book2audio.preflight import INSTALL, NotEnoughSpace, check_space, missing_tools
 from book2audio.tts.base import DEFAULTS
+from book2audio.tts.cache import SynthCache
 from book2audio.web.jobs import JobStore, State
 from book2audio.web.runner import Runner, build_engine
 
@@ -24,6 +25,14 @@ SUPPORTED_GENDERS = {"male", "female"}
 
 # Сколько символов проза даёт в секунду озвучки. Замер на реальных книгах.
 CHARS_PER_SECOND = 15.0
+
+# Фраза для образца голоса. Русская содержит омограф «замок»: на нём слышно,
+# ставит ли движок ударение сам. Обе достаточно длинные, чтобы судить о голосе
+# на скорости x2, и достаточно короткие, чтобы синтез был мгновенным.
+SAMPLE_TEXT = {
+    "ru": "Замок на двери был старше самого дома, и открыть его удавалось не с первого раза.",
+    "en": "The lock on the door was older than the house itself, and it never opened first try.",
+}
 
 # Пауза между опросами состояния для потока прогресса.
 POLL_SECONDS = 0.4
@@ -108,6 +117,22 @@ def create_app(
             "defaults": defaults,
             "voices": [{"id": v.id, "gender": v.gender} for v in engine.voices()],
         }
+
+    @app.get("/api/sample")
+    def sample(language: str = "ru", voice: str = ""):
+        """Одна фраза выбранным голосом. Диктора надо слышать, а не читать."""
+        if language not in SUPPORTED_LANGUAGES:
+            raise HTTPException(status_code=400, detail=f"язык {language} не поддерживается")
+        engine = build_engine(language, engine_name)
+        known = {v.id for v in engine.voices()}
+        if voice not in known:
+            raise HTTPException(status_code=400, detail=f"неизвестный голос: {voice}")
+
+        # Кэш общий с книгами по устройству, но лежит отдельно: образцы
+        # переживают удаление задач.
+        cache = SynthCache(root / "samples")
+        path = cache.synth(engine, SAMPLE_TEXT[language], voice)
+        return FileResponse(path, media_type="audio/wav", filename=f"{voice}.wav")
 
     @app.post("/api/jobs", status_code=201)
     async def create_job(

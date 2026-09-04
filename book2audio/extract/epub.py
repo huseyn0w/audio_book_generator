@@ -149,6 +149,30 @@ def _cut_into_chapters(pieces: list[Piece], toc: list[tuple[str, str, str]]) -> 
     return chapters
 
 
+def _cover(book) -> bytes | None:
+    """Обложка EPUB. Три способа пометить её, в порядке надёжности.
+
+    EPUB 2 кладёт <meta name="cover" content="id"> в OPF, EPUB 3 помечает
+    сам файл свойством cover-image. Последний вариант это догадка по имени:
+    так делают конвертеры, которые не соблюдают ни одну из спецификаций.
+    """
+    by_id = {item.get_id(): item for item in book.get_items()}
+
+    for _, attributes in book.get_metadata("OPF", "cover") or []:
+        item = by_id.get(attributes.get("content", ""))
+        if item is not None:
+            return item.get_content()
+
+    for item in book.get_items():
+        if "cover-image" in (getattr(item, "properties", None) or []):
+            return item.get_content()
+
+    for item in book.get_items_of_type(ebooklib.ITEM_IMAGE):
+        if "cover" in item.get_name().lower():
+            return item.get_content()
+    return None
+
+
 class EpubExtractor:
     def __init__(self, clean: bool = True) -> None:
         self.clean = clean
@@ -201,4 +225,5 @@ class EpubExtractor:
             author=first("creator") or None,
             language=language,
             chapters=chapters,
+            cover=_cover(book),
         )

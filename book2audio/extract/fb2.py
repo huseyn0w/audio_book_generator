@@ -4,6 +4,8 @@
 Прогоняем только правку текста и нормализацию под речь.
 """
 
+import base64
+import binascii
 from pathlib import Path
 
 from lxml import etree
@@ -126,6 +128,33 @@ def _metadata(root) -> tuple[str, str | None, str]:
     return title, author, language
 
 
+def _cover(root) -> bytes | None:
+    """Обложка: <coverpage> ссылается на <binary> по id, тело в base64."""
+    href = ""
+    for element in root.iter():
+        if _local(element) != "coverpage":
+            continue
+        for child in element:
+            if _local(child) == "image":
+                # Атрибут в пространстве xlink, а namespace в книгах разный.
+                for name, value in child.attrib.items():
+                    if name.endswith("href"):
+                        href = value
+                        break
+        break
+    if not href.startswith("#"):
+        return None
+
+    wanted = href[1:]
+    for element in root.iter():
+        if _local(element) == "binary" and element.get("id") == wanted:
+            try:
+                return base64.b64decode(element.text or "")
+            except (ValueError, binascii.Error):
+                return None
+    return None
+
+
 class Fb2Extractor:
     def __init__(self, clean: bool = True) -> None:
         self.clean = clean
@@ -163,4 +192,5 @@ class Fb2Extractor:
             author=author,
             language=language,
             chapters=chapters,
+            cover=_cover(root),
         )

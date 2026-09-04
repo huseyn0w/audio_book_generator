@@ -77,6 +77,12 @@ class Runner:
         self.store.set_state(job.id, State.EXTRACTING)
         document = pick_extractor(job.source, clean=True).extract(job.source)
         self.store.set_title(job.id, document.title)
+        # Синтез пересобирает документ из правленого текста, обложка туда
+        # не попадает. Кладём её на диск сейчас, пока она ещё в руках.
+        if document.cover:
+            work = self.work_root / job.id
+            work.mkdir(parents=True, exist_ok=True)
+            (work / "cover.jpg").write_bytes(document.cover)
         self.store.save_review(
             job.id,
             [
@@ -197,7 +203,10 @@ class Runner:
         if job.audio_format == "mp3":
             result = write_mp3_per_chapter(built, document, out_dir / name)
         else:
-            result = write_m4b(built, document, out_dir / f"{name}.m4b")
+            cover = work / "cover.jpg"
+            result = write_m4b(
+                built, document, out_dir / f"{name}.m4b", cover=cover if cover.exists() else None
+            )
 
         if self.copy_to and result.is_file():
             # Папка в iCloud Drive: файл сам приезжает в Файлы на iPhone.

@@ -310,3 +310,20 @@ audio { width: 100%; margin-top: var(--space-4); }
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Диктор и кнопка образца стоят в одну строку: слушать надо тот голос,
+   который выбран прямо сейчас. */
+.voice-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.voice-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-row button {
+  flex: 0 0 auto;
+}

@@ -40,6 +40,8 @@ class Document:
     author: str | None
     language: Language
     chapters: list[Chapter] = field(default_factory=list)
+    # Байты картинки, а не путь: извлечению не нужно знать про рабочую папку.
+    cover: bytes | None = None
 
     def __post_init__(self) -> None:
         if self.language not in LANGUAGES:

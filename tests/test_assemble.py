@@ -190,6 +190,7 @@ def test_wav_duration_helper_matches_the_file(tmp_path):
 
 # --- имена файлов ---
 
+
 def test_safe_filename_cuts_at_a_word_boundary():
     """Обрыв посреди слова выглядит поломкой: «поддерживать е.m4b»."""
     from book2audio.assemble import safe_filename

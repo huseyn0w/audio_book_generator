@@ -195,3 +195,39 @@ def test_runner_survives_one_failed_chunk(store, tmp_path, monkeypatch):
         (tmp_path / "work" / job.id / "synth_report.json").read_text(encoding="utf-8")
     )
     assert report["failed"] == 1
+
+
+def test_runner_keeps_the_cover_through_review(store, runner, tmp_path):
+    """Документ пересобирается из правленого текста, обложку надо сохранить отдельно."""
+    import subprocess
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from extract.test_cover import write_fb2
+
+    book = write_fb2(tmp_path / "cover.fb2", with_cover=True)
+    job = store.create(source=book, language="ru", gender="female")
+    runner.start_extraction(job.id)
+    assert wait_for(lambda: store.get(job.id).state == State.READY)
+    runner.enqueue(job.id)
+    assert wait_for(lambda: store.get(job.id).state == State.DONE)
+
+    result = store.get(job.id).result
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "default=nw=1",
+            str(result),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "codec_name=" in probe.stdout

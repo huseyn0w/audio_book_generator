@@ -41,6 +41,30 @@ async function loadVoices() {
   }
 }
 
+// Образец играет прямо со страницы: диктора надо услышать до того, как
+// на него потрачен час синтеза.
+let sample = null;
+
+async function playSample() {
+  const button = $("listen");
+  const language = $("language").value;
+  const voice = $("voice").value || $("voice").options[1]?.value;
+  if (!voice) return;
+
+  if (sample) sample.pause();
+  button.disabled = true;
+  button.textContent = "Готовлю";
+  try {
+    sample = new Audio(`/api/sample?language=${language}&voice=${voice}`);
+    await sample.play();
+  } catch {
+    showError("не получилось проиграть образец");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Прослушать";
+  }
+}
+
 // --- загрузка ---
 
 async function upload(file) {
@@ -249,6 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadVoices();
   $("language").addEventListener("change", loadVoices);
   $("gender").addEventListener("change", loadVoices);
+  $("listen").addEventListener("click", playSample);
   $("synth").addEventListener("click", startSynthesis);
   $("back").addEventListener("click", reset);
   $("again").addEventListener("click", reset);

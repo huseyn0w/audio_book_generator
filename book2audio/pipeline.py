@@ -58,6 +58,13 @@ def _safe_name(title: str) -> str:
     return safe_filename(title, limit=120)
 
 
+def _write_cover(work_dir: Path, data: bytes) -> Path:
+    """Кладёт картинку на диск: ffmpeg берёт обложку файлом, а не байтами."""
+    target = work_dir / "cover.jpg"
+    target.write_bytes(data)
+    return target
+
+
 def convert(
     path: Path,
     language: str,
@@ -95,6 +102,8 @@ def convert(
         (work_dir / "clean_report.json").write_text(
             json.dumps(clean_report.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
         )
+    if cover is None and document.cover:
+        cover = _write_cover(work_dir, document.cover)
     report("extract", 1, 1)
 
     report("chunk", 0, 1)
