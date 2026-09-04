@@ -48,3 +48,40 @@ def test_change_speed_raises_on_ffmpeg_failure(tmp_path):
     src = tmp_path / "missing.wav"
     with pytest.raises(subprocess.CalledProcessError):
         change_speed(src, tmp_path / "dst.wav", 2.0)
+
+
+def test_concat_joins_files_and_sums_duration(tmp_path):
+    from book2audio.audio import concat
+
+    parts = []
+    for i in range(3):
+        p = tmp_path / f"p{i}.wav"
+        write_wav_mono16(p, np.zeros(12000, dtype=np.float32), 24000)
+        parts.append(p)
+    out = tmp_path / "joined.wav"
+    concat(parts, out, 24000)
+    with wave.open(str(out)) as w:
+        assert w.getnframes() == pytest.approx(36000, rel=0.02)
+        assert w.getframerate() == 24000
+
+
+def test_concat_handles_more_files_than_fit_on_a_command_line(tmp_path):
+    """Книга даёт тысячи чанков, список файлов должен идти через файл, не через argv."""
+    from book2audio.audio import concat
+
+    parts = []
+    for i in range(600):
+        p = tmp_path / f"p{i:04d}.wav"
+        write_wav_mono16(p, np.zeros(240, dtype=np.float32), 24000)
+        parts.append(p)
+    out = tmp_path / "joined.wav"
+    concat(parts, out, 24000)
+    with wave.open(str(out)) as w:
+        assert w.getnframes() == pytest.approx(144000, rel=0.02)
+
+
+def test_concat_rejects_empty_input(tmp_path):
+    from book2audio.audio import concat
+
+    with pytest.raises(ValueError, match="нечего склеивать"):
+        concat([], tmp_path / "out.wav", 24000)

@@ -1,0 +1,86 @@
+from pathlib import Path
+
+import pytest
+import typer
+from typer.testing import CliRunner
+
+from book2audio.cli import app, build_engine, parse_pages
+
+runner = CliRunner()
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_parse_pages_reads_a_range():
+    assert parse_pages("10-20").pages == (10, 20)
+
+
+def test_parse_pages_reads_a_single_page():
+    assert parse_pages("7").pages == (7, 7)
+
+
+def test_parse_pages_returns_none_for_whole_document():
+    assert parse_pages(None) is None
+
+
+def test_parse_pages_rejects_garbage():
+    with pytest.raises(typer.BadParameter, match="диапазон страниц"):
+        parse_pages("десять")
+
+
+def test_build_engine_picks_silero_for_russian():
+    engine = build_engine("ru")
+    assert engine.name == "silero"
+
+
+def test_build_engine_picks_kokoro_for_english():
+    engine = build_engine("en")
+    assert engine.name == "kokoro"
+
+
+def test_voices_command_lists_voices_with_gender():
+    result = runner.invoke(app, ["voices", "--lang", "ru"])
+    assert result.exit_code == 0
+    assert "xenia" in result.stdout
+    assert "eugene" in result.stdout
+
+
+def test_convert_command_runs_end_to_end_with_the_fake_engine(tmp_path):
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(FIXTURES / "toc_ru.pdf"),
+            "--lang",
+            "ru",
+            "--pages",
+            "1-2",
+            "--out",
+            str(tmp_path),
+            "--engine",
+            "fake",
+            "--voice",
+            "fake_a",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert list(tmp_path.glob("*.wav"))
+
+
+def test_convert_command_explains_a_scanned_pdf(tmp_path):
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(FIXTURES / "scanned_ru.pdf"),
+            "--lang",
+            "ru",
+            "--out",
+            str(tmp_path),
+            "--engine",
+            "fake",
+            "--voice",
+            "fake_a",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "OCR" in result.stdout

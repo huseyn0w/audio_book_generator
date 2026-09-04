@@ -1,6 +1,7 @@
 """Запись и преобразование wav. Всё моно, 16 бит."""
 
 import subprocess
+import tempfile
 import wave
 from pathlib import Path
 
@@ -33,3 +34,44 @@ def change_speed(src: Path, dst: Path, factor: float) -> None:
         check=True,
         capture_output=True,
     )
+
+
+def concat(parts: list[Path], dst: Path, sample_rate: int) -> None:
+    """Склеивает wav-файлы в один.
+
+    Список путей идёт через временный файл, а не через аргументы: книга даёт
+    тысячи чанков, и командная строка такой список не вместит.
+    """
+    if not parts:
+        raise ValueError("нечего склеивать: пустой список файлов")
+
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as listing:
+        for part in parts:
+            escaped = str(part.resolve()).replace("'", r"'\''")
+            listing.write(f"file '{escaped}'\n")
+        listing_path = Path(listing.name)
+
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(listing_path),
+                "-ar",
+                str(sample_rate),
+                "-ac",
+                "1",
+                "-c:a",
+                "pcm_s16le",
+                str(dst),
+            ],
+            check=True,
+            capture_output=True,
+        )
+    finally:
+        listing_path.unlink(missing_ok=True)

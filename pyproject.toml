@@ -15,6 +15,9 @@ dependencies = [
     "typer>=0.27.2",
 ]
 
+[project.scripts]
+book2audio = "book2audio.cli:app"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 

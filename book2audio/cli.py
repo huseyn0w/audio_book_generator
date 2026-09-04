@@ -1,0 +1,125 @@
+"""Командная строка. Тонкая обёртка над конвейером."""
+
+import time
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from book2audio.extract.base import NoTextLayer
+from book2audio.models import Selection
+from book2audio.pipeline import Progress, convert
+from book2audio.tts.base import TTSEngine, pick_default
+from book2audio.tts.fake import FakeEngine
+from book2audio.tts.kokoro import KokoroEngine
+from book2audio.tts.silero import SileroEngine
+
+app = typer.Typer(help="Книги в аудиокниги. PDF на входе, wav на выходе.", add_completion=False)
+
+ENGINE_BY_LANGUAGE = {"ru": SileroEngine, "en": KokoroEngine}
+
+
+def parse_pages(value: str | None) -> Selection | None:
+    """Разбирает 10-20 или 7. Нумерация с единицы включительно."""
+    if not value:
+        return None
+    try:
+        if "-" in value:
+            first, last = (int(part) for part in value.split("-", 1))
+        else:
+            first = last = int(value)
+        return Selection(pages=(first, last))
+    except ValueError as exc:
+        raise typer.BadParameter(
+            f"диапазон страниц должен быть вида 10-20 или 7, а не {value!r}"
+        ) from exc
+
+
+def build_engine(language: str, engine_name: str = "") -> TTSEngine:
+    """Собирает движок под язык. Заглушка нужна тестам CLI."""
+    if engine_name == "fake":
+        return FakeEngine()
+    factory = ENGINE_BY_LANGUAGE.get(language)
+    if factory is None:
+        raise typer.BadParameter(f"язык {language!r} не поддерживается")
+    return factory()
+
+
+def _resolve_voice(language: str, voice: str | None, gender: str) -> str:
+    if voice:
+        return voice
+    try:
+        return pick_default(language, gender)
+    except KeyError as exc:
+        raise typer.BadParameter(f"нет голоса по умолчанию для {language}/{gender}") from exc
+
+
+@app.command()
+def voices(
+    lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
+) -> None:
+    """Показывает голоса движка для языка."""
+    engine = build_engine(lang)
+    typer.echo(f"движок {engine.name}, версия {engine.version}")
+    for v in engine.voices():
+        typer.echo(f"  {v.id:16} {v.gender}")
+
+
+@app.command()
+def convert_book(
+    path: Annotated[Path, typer.Argument(help="Файл книги", exists=True)],
+    lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
+    gender: Annotated[str, typer.Option(help="female или male")] = "female",
+    voice: Annotated[str | None, typer.Option(help="Конкретный голос, важнее чем --gender")] = None,
+    pages: Annotated[str | None, typer.Option(help="Диапазон, например 10-20")] = None,
+    out: Annotated[Path, typer.Option(help="Куда класть результат")] = Path("./output"),
+    engine: Annotated[str, typer.Option(help="Пусто или fake для тестов", hidden=True)] = "",
+) -> None:
+    """Превращает книгу в аудио."""
+    tts = build_engine(lang, engine)
+    chosen = _resolve_voice(lang, voice, gender) if engine != "fake" else (voice or "fake_a")
+
+    started = time.monotonic()
+    last_line = ""
+
+    def show(p: Progress) -> None:
+        nonlocal last_line
+        if p.stage == "synth":
+            share = p.done / p.total
+            elapsed = time.monotonic() - started
+            eta = elapsed / share - elapsed if share > 0 else 0
+            line = f"синтез {p.done}/{p.total} ({share:.0%}), осталось ≈{eta / 60:.1f} мин"
+        else:
+            line = {"extract": "читаю книгу", "chunk": "режу на куски", "assemble": "склеиваю"}[
+                p.stage
+            ]
+        if line != last_line:
+            typer.echo(line)
+            last_line = line
+
+    try:
+        target = convert(
+            path,
+            language=lang,
+            voice=chosen,
+            out_dir=out,
+            engine=tts,
+            selection=parse_pages(pages),
+            on_progress=show,
+        )
+    except NoTextLayer as exc:
+        typer.echo(f"Не получится: {exc}")
+        raise typer.Exit(code=1) from exc
+    except ValueError as exc:
+        typer.echo(f"Ошибка: {exc}")
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"готово за {(time.monotonic() - started) / 60:.1f} мин: {target}")
+
+
+# typer берёт имя команды из имени функции, а нужна именно "convert"
+app.command(name="convert")(convert_book)
+
+
+if __name__ == "__main__":
+    app()
