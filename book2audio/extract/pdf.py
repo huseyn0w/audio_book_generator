@@ -26,13 +26,17 @@ MONOSPACED_FLAG = 8
 
 
 def _block_text(raw: dict) -> str:
-    """Склеивает спаны блока и убирает рваные пробелы.
+    """Склеивает спаны блока в строку.
+
+    Спаны внутри строки идут вплотную: разрыв спана это смена шрифта,
+    часто посреди слова. Строки между собой склеиваются пробелом, иначе
+    на переносе слипаются последнее и первое слово.
 
     Часть PDF отдаёт текст с пробелом между каждой парой букв. Это артефакт
-    извлечения, а не содержание, поэтому чиним здесь, а не в фазе 2.
+    извлечения, а не содержание, поэтому схлопываем здесь, а не в фазе 2.
     """
-    parts = [span["text"] for line in raw.get("lines", []) for span in line["spans"]]
-    return " ".join("".join(parts).split())
+    lines = ["".join(span["text"] for span in line["spans"]) for line in raw.get("lines", [])]
+    return " ".join(" ".join(lines).split())
 
 
 def _block_font_size(raw: dict) -> float:
@@ -112,23 +116,78 @@ def split_into_chapters(blocks: list[RawBlock], median: float) -> list[Chapter]:
     return chapters
 
 
-def _chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) -> list[Chapter]:
-    """Режет блоки по страницам, на которых начинаются закладки."""
+def _find_heading_index(
+    blocks: list[RawBlock], title: str, page: int, search_from: int
+) -> int | None:
+    """Ищет блок с текстом заголовка на странице закладки."""
+    wanted = title.strip()
+    for index in range(search_from, len(blocks)):
+        if blocks[index].page > page:
+            break
+        if blocks[index].page == page and blocks[index].text.strip() == wanted:
+            return index
+    return None
+
+
+def _find_page_start(blocks: list[RawBlock], page: int, search_from: int) -> int | None:
+    for index in range(search_from, len(blocks)):
+        if blocks[index].page >= page:
+            return index
+    return None
+
+
+def chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) -> list[Chapter]:
+    """Режет блоки по закладкам PDF.
+
+    Граница главы это блок с текстом заголовка, а не край страницы. Подглавы
+    часто начинаются посреди страницы, и разрез по странице утаскивает хвост
+    предыдущей главы в следующую, а заголовок заставляет прочитать дважды.
+    """
     starts = [(page, title) for _level, title, page in toc if page >= first_page]
     if not starts:
         return []
 
+    marks: list[tuple[int, str, bool]] = []
+    search_from = 0
+    for page, title in starts:
+        index = _find_heading_index(blocks, title, page, search_from)
+        is_heading = index is not None
+        if index is None:
+            index = _find_page_start(blocks, page, search_from)
+        if index is None:
+            continue
+        marks.append((index, title, is_heading))
+        search_from = index + 1
+
+    if not marks:
+        return []
+
     chapters: list[Chapter] = []
-    for position, (page, title) in enumerate(starts):
-        next_page = starts[position + 1][0] if position + 1 < len(starts) else None
-        inside = [b for b in blocks if b.page >= page and (next_page is None or b.page < next_page)]
+    for position, (index, title, is_heading) in enumerate(marks):
+        stop = marks[position + 1][0] if position + 1 < len(marks) else len(blocks)
+        inside = blocks[index:stop]
         if not inside:
             continue
+        kinds = ["heading" if is_heading and i == 0 else "paragraph" for i in range(len(inside))]
         chapters.append(
             Chapter(
                 title=title,
-                blocks=[Block(kind="paragraph", text=b.text, page=b.page) for b in inside],
+                blocks=[
+                    Block(kind=kind, text=b.text, page=b.page)
+                    for kind, b in zip(kinds, inside, strict=True)
+                ],
             )
+        )
+
+    # Блоки до первой закладки это предисловие, терять их нельзя.
+    head = blocks[: marks[0][0]]
+    if head:
+        chapters.insert(
+            0,
+            Chapter(
+                title="Начало",
+                blocks=[Block(kind="paragraph", text=b.text, page=b.page) for b in head],
+            ),
         )
     return chapters
 
@@ -152,7 +211,7 @@ class PdfExtractor:
         finally:
             doc.close()
 
-        chapters = _chapters_from_toc(toc, blocks, pages[0].number) if toc else []
+        chapters = chapters_from_toc(toc, blocks, pages[0].number) if toc else []
         if not chapters:
             chapters = split_into_chapters(blocks, median_font_size(blocks))
 

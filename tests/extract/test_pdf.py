@@ -4,7 +4,12 @@ import pytest
 
 from book2audio.extract.base import NoTextLayer
 from book2audio.extract.layout import RawBlock
-from book2audio.extract.pdf import PdfExtractor, read_pages, split_into_chapters
+from book2audio.extract.pdf import (
+    PdfExtractor,
+    chapters_from_toc,
+    read_pages,
+    split_into_chapters,
+)
 from book2audio.models import Selection
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
@@ -109,3 +114,62 @@ def test_pdf_extractor_produces_blocks_with_page_numbers():
     doc = PdfExtractor().extract(TOC_PDF, Selection(pages=(1, 3)))
     pages = {b.page for c in doc.chapters for b in c.blocks}
     assert pages <= {1, 2, 3}
+
+
+def test_read_pages_keeps_space_at_line_breaks():
+    """Спаны внутри строки склеиваются вплотную, строки между собой через пробел."""
+    blocks = [b for p in read_pages(TOC_PDF) for b in p.blocks]
+    joined = " ".join(b.text for b in blocks)
+    assert "жесткие требования" in joined
+    assert "жесткиетребования" not in joined
+
+
+def test_toc_chapter_marks_its_title_block_as_heading():
+    doc = PdfExtractor().extract(TOC_PDF)
+    first = doc.chapters[0]
+    assert first.blocks[0].kind == "heading"
+    assert first.blocks[0].text == first.title
+
+
+def _raw(text, page, size=13.0):
+    return RawBlock(text=text, font_size=size, bbox=(0, 0, 100, 10), page=page)
+
+
+def test_toc_split_happens_at_the_heading_block_not_the_page_edge():
+    """Подглава часто начинается посреди страницы, резать по странице нельзя."""
+    blocks = [
+        _raw("Хвост первой главы", 5),
+        _raw("Ещё хвост первой главы", 5),
+        _raw("Вторая глава", 5),
+        _raw("Тело второй главы", 5),
+    ]
+    toc = [[1, "Первая глава", 4], [2, "Вторая глава", 5]]
+    chapters = chapters_from_toc(toc, [_raw("Начало", 4), *blocks], first_page=4)
+
+    assert [c.title for c in chapters] == ["Первая глава", "Вторая глава"]
+    assert [b.text for b in chapters[0].blocks] == [
+        "Начало",
+        "Хвост первой главы",
+        "Ещё хвост первой главы",
+    ]
+    assert chapters[1].blocks[0].kind == "heading"
+    assert [b.text for b in chapters[1].blocks] == ["Вторая глава", "Тело второй главы"]
+
+
+def test_toc_split_falls_back_to_page_start_when_title_not_found():
+    """Заголовок в тексте может быть свёрстан иначе, чем в закладке."""
+    blocks = [_raw("Текст четвёртой", 4), _raw("Текст пятой", 5)]
+    toc = [[1, "Первая", 4], [1, "Совсем другое название", 5]]
+    chapters = chapters_from_toc(toc, blocks, first_page=4)
+
+    assert [b.text for b in chapters[1].blocks] == ["Текст пятой"]
+    assert chapters[1].blocks[0].kind == "paragraph"
+
+
+def test_no_chapter_title_is_read_twice_on_the_real_book():
+    doc = PdfExtractor().extract(TOC_PDF)
+    for chapter in doc.chapters:
+        matching = [b for b in chapter.blocks if b.text.strip() == chapter.title.strip()]
+        assert len(matching) <= 1
+        if matching:
+            assert matching[0] is chapter.blocks[0]
