@@ -1,135 +1,141 @@
 # book2audio
 
-PDF, EPUB и FB2 в аудиокнигу m4b. Русский и английский, синтез локальный,
-без облака и без платных API.
+PDF, EPUB and FB2 into an m4b audiobook. Russian and English, synthesis runs
+locally, no cloud and no paid APIs.
 
-## Что это делает
+## What it does
 
-Берёт книгу, чистит текст от колонтитулов, номеров страниц, сносок
-и подписей к рисункам, показывает результат для проверки, озвучивает
-и собирает m4b с главами. Готовый файл кладётся в iCloud Drive, откуда
-сам появляется в Файлах на iPhone.
+Takes a book, strips running heads, page numbers, footnotes and figure
+captions, shows you the result to check, reads it aloud and builds an m4b
+with chapters. The finished file lands in iCloud Drive, where it shows up
+in Files on the iPhone by itself.
 
-## Установка
+## Install
 
-Нужен Mac на Apple Silicon.
+Needs a Mac on Apple Silicon.
 
 ```bash
 brew install ffmpeg espeak-ng uv
 uv sync
 ```
 
-Веса моделей качаются при первом запуске, примерно 300 МБ. Дальше сеть
-не нужна.
+Model weights download on first run, about 300 MB. After that no network
+is needed.
 
-## Быстрый старт
+## Quick start
 
 ```bash
 uv run book2audio serve
 ```
 
-Открыть http://127.0.0.1:8000, перетащить книгу.
+Open http://127.0.0.1:8000 and drop a book on the page.
 
-## Командная строка
+## Command line
 
 ```bash
-# список глав с оценкой длительности
-uv run book2audio chapters книга.fb2
+# chapter list with duration estimates
+uv run book2audio chapters book.fb2
 
-# книга целиком
-uv run book2audio convert книга.pdf --lang ru --gender female
+# the whole book
+uv run book2audio convert book.pdf --lang ru --gender female
 
-# отдельные страницы или главы
-uv run book2audio convert книга.pdf  --pages 22-40
-uv run book2audio convert книга.epub --chapters 4-7
+# a range of pages or chapters
+uv run book2audio convert book.pdf  --pages 22-40
+uv run book2audio convert book.epub --chapters 4-7
 
-# папка mp3 вместо m4b
-uv run book2audio convert книга.fb2 --format mp3
+# a folder of mp3 instead of one m4b
+uv run book2audio convert book.fb2 --format mp3
 
-# без чистки, чтобы сравнить с оригиналом
-uv run book2audio convert книга.pdf --no-clean
+# no cleaning, to compare against the original
+uv run book2audio convert book.pdf --no-clean
 
-# какие голоса есть
+# what voices are available
 uv run book2audio voices --lang en
 ```
 
-## Голоса
+## Voices
 
-Выбраны слепым сравнением 45 голосов, см.
+Picked by a blind comparison of 45 voices, see
 `docs/superpowers/specs/voice-choice.md`.
 
-| Язык | Женский | Мужской | Движок |
+| Language | Female | Male | Engine |
 |---|---|---|---|
-| Русский | xenia | eugene | Silero v5 |
-| Английский | af_nova | am_michael | Kokoro-82M |
+| Russian | xenia | eugene | Silero v5 |
+| English | af_nova | am_michael | Kokoro-82M |
 
-Silero v5 сам расставляет ударения и разбирает омографы. Без этого русская
-речь выматывает уже через двадцать минут.
+Silero v5 places Russian stress marks and resolves homographs on its own.
+Without that, Russian speech gets tiring after twenty minutes.
 
-Пересобрать сравнение под себя:
+The web interface has a Listen button next to the voice picker: one phrase
+in the selected voice, synthesized on the spot.
+
+Rebuild the comparison for yourself:
 
 ```bash
 uv run python scripts/voice_bakeoff.py --out ./bakeoff
 open bakeoff/index.html
 ```
 
-## Скорость
+## Speed
 
-Замеры на M-серии:
+Measured on an M-series Mac:
 
-| Движок | Realtime | Книга на 12 часов |
+| Engine | Realtime | A 12-hour book |
 |---|---|---|
-| Silero v5 | x32-x46 | 20-25 минут |
-| Kokoro-82M | x5.8 | около 2 часов |
+| Silero v5 | x32-x46 | 20-25 minutes |
+| Kokoro-82M | x5.8 | about 2 hours |
 
-Синтез кэшируется по содержимому чанка. Повторный прогон той же книги
-занимает секунды.
+Synthesis is cached by chunk content. Running the same book again takes
+seconds. A chunk that fails gets three attempts, then becomes silence of
+the same length and a line in `synth_report.json`, so one bad chunk never
+costs a whole run.
 
-## Какой формат выбирать
+## Which format to feed it
 
-Если книга есть в нескольких форматах, бери FB2 или EPUB. В PDF сноски
-часто набраны тем же кеглем, что основной текст, и отличить их от прозы
-нечем. На книге Кристенсена PDF даёт 714 тысяч символов против 539 тысяч
-у EPUB: разница это примечания, прочитанные вслух.
+If a book exists in several formats, take FB2 or EPUB. In PDF, footnotes
+are often set in the same size as body text, and nothing distinguishes them
+from prose. On the Christensen book, the PDF yields 714 thousand characters
+against 539 thousand from the EPUB: the difference is endnotes, read aloud.
 
-Скан без текстового слоя не поддерживается. OCR за рамками проекта.
+Scans with no text layer are not supported. OCR is out of scope.
 
-## Как устроено
+## How it works
 
 ```
-загрузка → извлечение → чистка → предпросмотр → сегментация → синтез → сборка
+upload → extract → clean → review → segment → synthesize → assemble
 ```
 
-Ядро это библиотека и CLI, веб-слой тонкая обёртка. Два протокола держат
-всю систему: `Extractor` отдаёт `Document`, `TTSEngine` принимает текст
-и пишет wav. Смена движка трогает один файл.
+The core is a library plus a CLI; the web layer is a thin wrapper. Two
+protocols hold the whole thing together: `Extractor` returns a `Document`,
+`TTSEngine` takes text and writes a wav. Swapping an engine touches one file.
 
-| Модуль | Ответственность |
+| Module | Responsibility |
 |---|---|
-| `extract/` | PDF через PyMuPDF, EPUB через ebooklib, FB2 через lxml |
-| `clean/` | эвристики вёрстки, правка текста, нормализация под речь |
-| `chunker.py` | предложения в чанки до 800 символов, паузы |
-| `tts/` | Silero, Kokoro, кэш по sha256 |
-| `assemble.py` | ffmpeg, m4b с главами, mp3 по главам |
-| `web/` | FastAPI, реестр задач на SQLite, SSE, интерфейс |
+| `extract/` | PDF via PyMuPDF, EPUB via ebooklib, FB2 via lxml |
+| `clean/` | layout heuristics, text repair, normalization for speech |
+| `chunker.py` | sentences into chunks of up to 800 characters, pauses |
+| `tts/` | Silero, Kokoro, sha256 cache |
+| `assemble.py` | ffmpeg, m4b with chapters and cover art, mp3 per chapter |
+| `preflight.py` | required tools and free disk space, checked before work starts |
+| `web/` | FastAPI, SQLite job registry, SSE, the interface |
 
-## Разработка
+## Development
 
 ```bash
-uv run pytest                    # быстрые тесты
-uv run pytest -m slow            # с реальными весами моделей
+uv run pytest                    # fast tests
+uv run pytest -m slow            # with real model weights
 uv run ruff check . && uv run ruff format --check .
 ```
 
-Фикстуры нарезаны из реальных книг. Пересобрать, если книги лежат
-в ~/Downloads:
+Fixtures are cut from real books. Rebuild them if the books are in
+~/Downloads:
 
 ```bash
 uv run python scripts/make_fixtures.py
 ```
 
-## Что за рамками
+## Out of scope
 
-OCR для сканов, языки кроме русского и английского, смешанные языки внутри
-одной книги, клонирование голоса, синхронизация позиции между устройствами,
-многопользовательский режим.
+OCR for scans, languages other than Russian and English, mixed languages
+inside one book, voice cloning, position sync across devices, multi-user
+mode.
