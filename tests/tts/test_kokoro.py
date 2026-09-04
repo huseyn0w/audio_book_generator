@@ -15,9 +15,9 @@ def test_kokoro_sample_rate_is_24000():
 
 
 def test_kokoro_lists_american_and_british_voices():
-    voices = KokoroEngine().voices()
-    assert "af_heart" in voices
-    assert "bm_george" in voices
+    ids = [v.id for v in KokoroEngine().voices()]
+    assert "af_heart" in ids
+    assert "bm_george" in ids
 
 
 def test_kokoro_rejects_unknown_voice(tmp_path):

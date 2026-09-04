@@ -72,3 +72,10 @@ def test_player_page_hides_voice_names_from_visible_text(tmp_path):
     html = (tmp_path / "index.html").read_text(encoding="utf-8")
     assert 'data-voice="fake/fake_a"' in html
     assert ">fake/fake_a<" not in html
+
+
+def test_player_page_shows_gender_mark(tmp_path):
+    run_bakeoff([(FakeEngine(), "ru")], tmp_path)
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert ">ru_01 ♀<" in html
+    assert ">ru_02 ♂<" in html

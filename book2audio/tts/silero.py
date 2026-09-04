@@ -10,6 +10,7 @@ import torch
 
 from book2audio.audio import write_wav_mono16
 from book2audio.net import ensure_ssl_certs
+from book2audio.tts.base import Voice
 
 # Порядок совпадает с model.speakers. Медленный тест это сторожит.
 VOICES: dict[str, list[str]] = {
@@ -50,6 +51,16 @@ VOICES: dict[str, list[str]] = {
     ],
 }
 
+# Пол родных голосов известен точно. У дикторов СНГ его не угадываем:
+# в UI эта модель не идёт, она нужна только скрипту сравнения.
+GENDER: dict[str, str] = {
+    "aidar": "male",
+    "baya": "female",
+    "kseniya": "female",
+    "eugene": "male",
+    "xenia": "female",
+}
+
 ALLOWED_SAMPLE_RATES = (8000, 24000, 48000)
 
 
@@ -65,8 +76,8 @@ class SileroEngine:
         self.model_id = model_id
         self._model = None
 
-    def voices(self) -> list[str]:
-        return list(VOICES[self.model_id])
+    def voices(self) -> list[Voice]:
+        return [Voice(id=v, gender=GENDER.get(v, "unknown")) for v in VOICES[self.model_id]]
 
     def _load(self):
         if self._model is None:
@@ -83,7 +94,7 @@ class SileroEngine:
         return self._model
 
     def synth(self, text: str, voice: str, out_path: Path) -> None:
-        if voice not in self.voices():
+        if voice not in VOICES[self.model_id]:
             raise ValueError(f"неизвестный голос: {voice}")
         if not text.strip():
             raise ValueError("пустой текст")

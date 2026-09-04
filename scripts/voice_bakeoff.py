@@ -85,7 +85,10 @@ PAGE_SCRIPT = """
 """
 
 
-def write_player_page(mapping: dict[str, str], out_dir: Path) -> None:
+GENDER_MARK = {"female": "\u2640", "male": "\u2642", "unknown": "\u00b7"}
+
+
+def write_player_page(mapping: dict[str, str], genders: dict[str, str], out_dir: Path) -> None:
     """Локальная страница для прослушивания. Имя голоса скрыто до клика."""
     rows: list[str] = []
     last_lang = None
@@ -94,8 +97,9 @@ def write_player_page(mapping: dict[str, str], out_dir: Path) -> None:
         if lang != last_lang:
             rows.append(f"<h2>{'русский' if lang == 'ru' else 'английский'}</h2>")
             last_lang = lang
+        mark = GENDER_MARK[genders.get(label, "unknown")]
         rows.append(
-            f'<div class="row"><span class="label">{label}</span>'
+            f'<div class="row"><span class="label">{label} {mark}</span>'
             f'<span><span class="speed">x1</span>'
             f'<audio controls preload="none" src="{label}.wav"></audio></span>'
             f'<span><span class="speed">x2</span>'
@@ -121,6 +125,7 @@ def run_bakeoff(engines: list[tuple[TTSEngine, str]], out_dir: Path) -> dict[str
     (out_dir / "key").mkdir(exist_ok=True)
 
     mapping: dict[str, str] = {}
+    genders: dict[str, str] = {}
     counters: dict[str, int] = {}
 
     for engine, lang in engines:
@@ -128,15 +133,16 @@ def run_bakeoff(engines: list[tuple[TTSEngine, str]], out_dir: Path) -> dict[str
             counters[lang] = counters.get(lang, 0) + 1
             label = f"{lang}_{counters[lang]:02d}"
             x1 = out_dir / f"{label}.wav"
-            engine.synth(TEXT_BY_LANG[lang], voice, x1)
+            engine.synth(TEXT_BY_LANG[lang], voice.id, x1)
             change_speed(x1, out_dir / f"{label}_x2.wav", 2.0)
-            mapping[label] = f"{engine.name}/{voice}"
+            mapping[label] = f"{engine.name}/{voice.id}"
+            genders[label] = voice.gender
             print(f"{label}  готово")
 
     (out_dir / "key" / "mapping.json").write_text(
         json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    write_player_page(mapping, out_dir)
+    write_player_page(mapping, genders, out_dir)
     return mapping
 
 

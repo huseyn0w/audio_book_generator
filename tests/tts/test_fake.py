@@ -11,7 +11,7 @@ def test_fake_engine_satisfies_protocol():
 
 
 def test_fake_engine_lists_voices():
-    assert FakeEngine().voices() == ["fake_a", "fake_b"]
+    assert [v.id for v in FakeEngine().voices()] == ["fake_a", "fake_b"]
 
 
 def test_fake_engine_duration_is_proportional_to_text(tmp_path):

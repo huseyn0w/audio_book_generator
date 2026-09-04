@@ -11,13 +11,19 @@ def test_silero_satisfies_protocol():
 
 
 def test_silero_lists_voices_for_default_model():
-    assert SileroEngine().voices() == ["aidar", "baya", "kseniya", "eugene", "xenia"]
+    assert [v.id for v in SileroEngine().voices()] == [
+        "aidar",
+        "baya",
+        "kseniya",
+        "eugene",
+        "xenia",
+    ]
 
 
 def test_silero_lists_prefixed_voices_for_cis_model():
-    voices = SileroEngine(model_id="v5_cis_base").voices()
-    assert len(voices) == 29
-    assert all(v.startswith("ru_") for v in voices)
+    ids = [v.id for v in SileroEngine(model_id="v5_cis_base").voices()]
+    assert len(ids) == 29
+    assert all(i.startswith("ru_") for i in ids)
 
 
 def test_silero_rejects_unknown_model_id():

@@ -10,6 +10,7 @@ import numpy as np
 
 from book2audio.audio import write_wav_mono16
 from book2audio.net import ensure_ssl_certs
+from book2audio.tts.base import Voice
 
 VOICES: list[str] = [
     "af_heart",
@@ -27,6 +28,9 @@ VOICES: list[str] = [
 
 LANG_BY_PREFIX = {"a": "a", "b": "b"}
 
+# Идентификатор Kokoro кодирует и язык, и пол: af_nova это American female.
+GENDER_BY_LETTER = {"f": "female", "m": "male"}
+
 
 class KokoroEngine:
     name = "kokoro"
@@ -36,8 +40,8 @@ class KokoroEngine:
         self.model_repo = model_repo
         self._model = None
 
-    def voices(self) -> list[str]:
-        return list(VOICES)
+    def voices(self) -> list[Voice]:
+        return [Voice(id=v, gender=GENDER_BY_LETTER[v[1]]) for v in VOICES]
 
     def _lang_code(self, voice: str) -> str:
         prefix = voice[0]

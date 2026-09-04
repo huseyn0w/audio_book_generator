@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from book2audio.audio import write_wav_mono16
+from book2audio.tts.base import Voice
 
 
 class FakeEngine:
@@ -15,11 +16,13 @@ class FakeEngine:
     sample_rate = 24000
     CHARS_PER_SECOND = 15.0
 
-    def voices(self) -> list[str]:
-        return ["fake_a", "fake_b"]
+    VOICE_IDS = ("fake_a", "fake_b")
+
+    def voices(self) -> list[Voice]:
+        return [Voice(id="fake_a", gender="female"), Voice(id="fake_b", gender="male")]
 
     def synth(self, text: str, voice: str, out_path: Path) -> None:
-        if voice not in self.voices():
+        if voice not in self.VOICE_IDS:
             raise ValueError(f"неизвестный голос: {voice}")
         if not text.strip():
             raise ValueError("пустой текст")
