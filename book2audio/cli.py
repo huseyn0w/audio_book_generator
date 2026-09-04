@@ -74,6 +74,9 @@ def convert_book(
     pages: Annotated[str | None, typer.Option(help="Диапазон, например 10-20")] = None,
     out: Annotated[Path, typer.Option(help="Куда класть результат")] = Path("./output"),
     engine: Annotated[str, typer.Option(help="Пусто или fake для тестов", hidden=True)] = "",
+    clean: Annotated[
+        bool, typer.Option(help="Чистить текст. --no-clean покажет книгу как есть")
+    ] = True,
 ) -> None:
     """Превращает книгу в аудио."""
     tts = build_engine(lang, engine)
@@ -106,6 +109,7 @@ def convert_book(
             engine=tts,
             selection=parse_pages(pages),
             on_progress=show,
+            clean=clean,
         )
     except NoTextLayer as exc:
         typer.echo(f"Не получится: {exc}")

@@ -5,10 +5,13 @@
 колонтитул от абзаца, поэтому терять их нельзя.
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
 
+from book2audio.clean.pipeline import CleanReport, clean_pages
+from book2audio.clean.speech import normalize_for_speech
 from book2audio.extract.base import NoTextLayer
 from book2audio.extract.layout import RawBlock, RawPage, median_font_size
 from book2audio.models import Block, Chapter, Document, Selection
@@ -193,6 +196,10 @@ def chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) 
 
 
 class PdfExtractor:
+    def __init__(self, clean: bool = True) -> None:
+        self.clean = clean
+        self.report: CleanReport | None = None
+
     def extract(self, path: Path, selection: Selection | None = None) -> Document:
         pages = read_pages(path, selection)
         blocks = [b for p in pages for b in p.blocks]
@@ -211,13 +218,26 @@ class PdfExtractor:
         finally:
             doc.close()
 
+        if self.clean:
+            blocks, self.report = clean_pages(pages)
+            if not blocks:
+                raise NoTextLayer("после чистки не осталось текста")
+
         chapters = chapters_from_toc(toc, blocks, pages[0].number) if toc else []
         if not chapters:
             chapters = split_into_chapters(blocks, median_font_size(blocks))
 
+        language = "ru"
+        if self.clean:
+            for chapter in chapters:
+                chapter.title = normalize_for_speech(chapter.title, language)
+                chapter.blocks = [
+                    replace(b, text=normalize_for_speech(b.text, language)) for b in chapter.blocks
+                ]
+
         return Document(
             title=meta.get("title") or path.stem,
             author=meta.get("author") or None,
-            language="ru",
+            language=language,
             chapters=chapters,
         )

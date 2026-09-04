@@ -146,3 +146,39 @@ def test_clean_book_loses_nothing_to_these_rules():
     pages = read_pages(FIXTURES / "toc_ru.pdf")
     assert texts(drop_figure_captions(pages)) == texts(pages)
     assert texts(drop_non_prose(pages)) == texts(pages)
+
+
+# --- числовые подписи ---
+
+
+def test_numeric_caption_in_small_font_is_dropped():
+    """Подписи-даты вроде «1160—1170 гг.» вслух звучат как случайный набор чисел."""
+    from book2audio.clean.pdf_layout import drop_numeric_captions
+
+    pages = [page([blk("Основной текст здесь.", size=13.0), blk("1160—1170 гг.", size=9.0)])]
+    assert texts(drop_numeric_captions(pages, median=13.0)) == ["Основной текст здесь."]
+
+
+def test_numeric_string_in_normal_font_survives():
+    from book2audio.clean.pdf_layout import drop_numeric_captions
+
+    pages = [page([blk("1861 г.", size=13.0)])]
+    assert texts(drop_numeric_captions(pages, median=13.0)) == ["1861 г."]
+
+
+def test_small_prose_survives_the_numeric_rule():
+    from book2audio.clean.pdf_layout import drop_numeric_captions
+
+    pages = [page([blk("Мелкий, но обычный текст без цифр.", size=9.0)])]
+    assert len(texts(drop_numeric_captions(pages, median=13.0))) == 1
+
+
+def test_numeric_caption_rule_does_not_touch_clean_books():
+    from book2audio.clean.pdf_layout import drop_numeric_captions
+    from book2audio.extract.layout import median_font_size
+    from book2audio.extract.pdf import read_pages
+
+    for name in ("toc_ru.pdf", "no_toc_ru.pdf"):
+        pages = read_pages(FIXTURES / name)
+        median = median_font_size([b for p in pages for b in p.blocks])
+        assert texts(drop_numeric_captions(pages, median)) == texts(pages)

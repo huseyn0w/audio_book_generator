@@ -4,6 +4,7 @@
 с заглушкой за секунды. Реальный движок выбирает CLI.
 """
 
+import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -29,15 +30,15 @@ class Progress:
 
 ProgressHook = Callable[[Progress], None]
 
-EXTRACTORS: dict[str, Callable[[], Extractor]] = {".pdf": PdfExtractor}
+EXTRACTORS: dict[str, Callable[..., Extractor]] = {".pdf": PdfExtractor}
 
 
-def _pick_extractor(path: Path) -> Extractor:
+def _pick_extractor(path: Path, clean: bool) -> Extractor:
     factory = EXTRACTORS.get(path.suffix.lower())
     if factory is None:
         known = ", ".join(sorted(EXTRACTORS))
         raise ValueError(f"неизвестный формат {path.suffix!r}, умею пока: {known}")
-    return factory()
+    return factory(clean=clean)
 
 
 def _safe_name(title: str) -> str:
@@ -56,6 +57,7 @@ def convert(
     selection: Selection | None = None,
     work_dir: Path | None = None,
     on_progress: ProgressHook | None = None,
+    clean: bool = True,
 ) -> Path:
     """Гонит книгу через весь конвейер и отдаёт путь к готовому wav."""
     path = Path(path)
@@ -73,7 +75,13 @@ def convert(
             on_progress(Progress(stage=stage, done=done, total=total))
 
     report("extract", 0, 1)
-    document = _pick_extractor(path).extract(path, selection)
+    extractor = _pick_extractor(path, clean)
+    document = extractor.extract(path, selection)
+    clean_report = getattr(extractor, "report", None)
+    if clean_report is not None:
+        (work_dir / "clean_report.json").write_text(
+            json.dumps(clean_report.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     report("extract", 1, 1)
 
     report("chunk", 0, 1)

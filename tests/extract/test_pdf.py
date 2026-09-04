@@ -61,11 +61,16 @@ def test_extract_raises_on_scanned_pdf():
 
 
 def test_extract_uses_pdf_bookmarks_when_present():
-    doc = PdfExtractor().extract(TOC_PDF)
+    doc = PdfExtractor(clean=False).extract(TOC_PDF)
     assert [c.title for c in doc.chapters] == [
         "Глава 1 Императив роста",
         "Инновации: «черный ящик»?",
     ]
+
+
+def test_extract_normalizes_chapter_titles_for_speech():
+    doc = PdfExtractor().extract(TOC_PDF)
+    assert doc.chapters[0].title == "Глава первая Императив роста"
 
 
 def test_extract_reads_metadata():

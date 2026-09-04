@@ -249,3 +249,24 @@ def sort_reading_order(page: RawPage) -> RawPage:
             page.blocks, key=lambda b: (_column_of(b, page), round(b.top, 1), b.bbox[0])
         )
     return replace(page, blocks=ordered)
+
+
+# Доля не-букв, при которой мелкий блок считается подписью-датой.
+NUMERIC_CAPTION_RATIO = 0.6
+
+
+def drop_numeric_captions(pages: list[RawPage], median: float) -> list[RawPage]:
+    """Выбрасывает мелкие блоки почти из одних цифр.
+
+    В атласах и учебниках так набраны даты под иллюстрациями. Вслух они
+    звучат случайным набором чисел посреди абзаца. Требование мелкого
+    шрифта обязательно: «1861 г.» в основном тексте это содержание.
+    """
+
+    def rule(block: RawBlock, page: RawPage) -> bool:
+        return (
+            block.font_size < median * SMALL_FONT_RATIO
+            and _non_alpha_share(block.text) > NUMERIC_CAPTION_RATIO
+        )
+
+    return _apply_with_guard(pages, rule)

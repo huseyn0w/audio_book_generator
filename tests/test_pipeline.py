@@ -122,3 +122,34 @@ def test_convert_rejects_unknown_file_format(tmp_path):
     book.write_text("привет", encoding="utf-8")
     with pytest.raises(ValueError, match="неизвестный формат"):
         convert(book, language="ru", voice="fake_a", out_dir=tmp_path, engine=FakeEngine())
+
+
+def test_convert_writes_a_clean_report(tmp_path):
+    import json
+
+    convert(
+        TOC_PDF,
+        language="ru",
+        voice="fake_a",
+        out_dir=tmp_path,
+        selection=Selection(pages=(1, 2)),
+        engine=FakeEngine(),
+    )
+    report = json.loads((tmp_path / ".work" / "clean_report.json").read_text(encoding="utf-8"))
+    assert report["kept"] > 0
+    assert report["chars_after"] <= report["chars_before"]
+
+
+def test_convert_can_skip_cleaning(tmp_path):
+    """--no-clean нужен, чтобы понять, эвристика испортила текст или он таким и был."""
+    out = convert(
+        TOC_PDF,
+        language="ru",
+        voice="fake_a",
+        out_dir=tmp_path,
+        selection=Selection(pages=(1, 2)),
+        engine=FakeEngine(),
+        clean=False,
+    )
+    assert out.exists()
+    assert not (tmp_path / ".work" / "clean_report.json").exists()

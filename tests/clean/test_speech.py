@@ -109,11 +109,7 @@ def test_plain_text_is_untouched_by_url_rule():
 
 def test_full_normalization_applies_every_rule():
     result = normalize_for_speech("Глава XIV, стр. 45, т.е. https://a.b", "ru")
-    assert "четырнадцать" in result
-    assert "страница" in result
-    assert "то есть" in result
-    assert "ссылка" in result
-    assert "XIV" not in result
+    assert result == "Глава четырнадцатая, страница сорок пять, то есть ссылка"
 
 
 def test_normalization_is_idempotent():
@@ -142,3 +138,50 @@ def test_normalization_keeps_ordinary_prose_intact():
 def test_year_agrees_with_the_preposition(phrase, expected):
     """Без склонения выходит «в тысяча восемьсот первый году», это режет слух."""
     assert numbers_to_words(phrase, "ru") == expected
+
+
+# --- порядковые в заголовках ---
+
+
+@pytest.mark.parametrize(
+    ("heading", "expected"),
+    [
+        ("Глава 1", "Глава первая"),
+        ("Глава 2 Императив роста", "Глава вторая Императив роста"),
+        ("Часть 3", "Часть третья"),
+        ("Раздел 4", "Раздел четвёртый"),
+        ("Том 2", "Том второй"),
+    ],
+)
+def test_chapter_number_is_read_as_an_ordinal(heading, expected):
+    """«Глава один» звучит неправильно, и слышно это на каждой границе главы."""
+    assert normalize_for_speech(heading, "ru") == expected
+
+
+def test_number_not_after_a_heading_word_stays_cardinal():
+    assert normalize_for_speech("осталось 3 попытки", "ru") == "осталось три попытки"
+
+
+def test_english_headings_keep_the_plain_number_word():
+    assert normalize_for_speech("Chapter 2", "en") == "Chapter two"
+
+
+# --- римские века ---
+
+
+@pytest.mark.parametrize(
+    ("phrase", "expected"),
+    [
+        ("в IV в. нашей эры", "в четвёртом веке нашей эры"),
+        ("в XIX веке", "в девятнадцатом веке"),
+        ("на рубеже III—IV вв.", "на рубеже третьего—четвёртого веков"),
+        ("XX век", "двадцатый век"),
+    ],
+)
+def test_roman_century_reads_as_an_ordinal(phrase, expected):
+    """«III в.» как «три век» меняет смысл на количество, а не на порядок."""
+    assert normalize_for_speech(phrase, "ru") == expected
+
+
+def test_roman_numeral_without_a_century_word_still_becomes_a_number():
+    assert normalize_for_speech("пункт XIV списка", "ru") == "пункт четырнадцать списка"
