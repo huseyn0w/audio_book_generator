@@ -11,6 +11,7 @@ import torch
 from book2audio.audio import write_wav_mono16
 from book2audio.net import ensure_ssl_certs
 from book2audio.tts.base import Voice
+from book2audio.tts.translit import latin_to_cyrillic
 
 # Порядок совпадает с model.speakers. Медленный тест это сторожит.
 VOICES: dict[str, list[str]] = {
@@ -97,10 +98,21 @@ class SileroEngine:
             self._model = model
         return self._model
 
+    def prepare(self, text: str) -> str:
+        """Готовит текст под таблицу символов модели.
+
+        Латинских букв в ней нет: одна буква из «E*Trade Bank» роняет
+        apply_tts с KeyError, а в мягком пути движок просто выбрасывает
+        слово, и название компании пропадает из фразы.
+        """
+        return latin_to_cyrillic(text)
+
     def synth(self, text: str, voice: str, out_path: Path) -> None:
         if voice not in VOICES[self.model_id]:
             raise ValueError(f"неизвестный голос: {voice}")
         if not text.strip():
             raise ValueError("пустой текст")
-        audio = self._load().apply_tts(text=text, speaker=voice, sample_rate=self.sample_rate)
+        audio = self._load().apply_tts(
+            text=self.prepare(text), speaker=voice, sample_rate=self.sample_rate
+        )
         write_wav_mono16(out_path, audio.numpy(), self.sample_rate)

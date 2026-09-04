@@ -63,14 +63,19 @@ class SynthCache:
     def synth_or_silence(self, engine: TTSEngine, text: str, voice: str) -> Path:
         """Как synth, но сорвавшийся чанк не роняет книгу, а становится тишиной.
 
-        ValueError не ретраится: неизвестный голос и пустой текст от повтора
-        не чинятся, а подмена тишиной превратила бы всю книгу в тишину.
+        Голос и пустоту проверяем сами, до движка: от них повтор не спасёт,
+        а тихая подмена превратила бы в тишину всю книгу. Всё остальное, чем
+        бы движок ни упал, считается сбоем этого куска. Silero, например,
+        кидает голый ValueError на куске, который не смог разобрать.
         """
+        if voice not in {v.id for v in engine.voices()}:
+            raise ValueError(f"неизвестный голос: {voice}")
+        if not text.strip():
+            raise ValueError("пустой текст")
+
         for attempt in range(ATTEMPTS):
             try:
                 return self.synth(engine, text, voice)
-            except ValueError:
-                raise
             except Exception:  # noqa: BLE001 — движок волен упасть чем угодно
                 if attempt == ATTEMPTS - 1:
                     break

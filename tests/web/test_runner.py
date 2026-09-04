@@ -243,3 +243,21 @@ def test_runner_extracts_in_the_language_of_the_job(store, runner, tmp_path):
     letters = [ch for ch in text if ch.isalpha()]
     cyrillic = sum(1 for ch in letters if "Ѐ" <= ch <= "ӿ")
     assert cyrillic / len(letters) < 0.01
+
+
+def test_failure_message_is_never_empty(store, runner, tmp_path, monkeypatch):
+    """Silero кидает ValueError без текста, и на экране было пусто."""
+    from book2audio.web import runner as runner_module
+
+    def boom(self, job):
+        raise ValueError
+
+    monkeypatch.setattr(runner_module.Runner, "_extract", boom)
+    job = store.create(source=FIXTURES / "toc_ru.pdf", language="ru", gender="female")
+    runner.start_extraction(job.id)
+    assert wait_for(lambda: store.get(job.id).state == State.FAILED)
+
+    message = store.get(job.id).error
+    assert message.strip()
+    assert message.strip() != "ValueError:"
+    assert "ValueError" in message

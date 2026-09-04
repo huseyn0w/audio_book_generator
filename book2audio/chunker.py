@@ -79,6 +79,15 @@ def _pack_paragraph(text: str, language: str, limit: int) -> list[str]:
     return _pack(parts, limit, glue=" ")
 
 
+def is_speakable(text: str) -> bool:
+    """Есть ли в куске что произносить.
+
+    «* * *» это разделитель сцен: букв и цифр нет, и Silero падает на нём
+    голым ValueError. Пауза между абзацами разрыв сцены и так обозначит.
+    """
+    return any(c.isalnum() for c in text)
+
+
 def chunk_document(doc: Document, language: str, limit: int = CHUNK_LIMIT) -> list[Chunk]:
     """Разбивает документ на чанки с паузами по границам абзацев и глав."""
     chunks: list[Chunk] = []
@@ -90,6 +99,8 @@ def chunk_document(doc: Document, language: str, limit: int = CHUNK_LIMIT) -> li
         if not announced and chapter.title:
             texts.insert(0, chapter.title)
 
+        texts = [t for t in texts if is_speakable(t)]
+
         for position, text in enumerate(texts):
             last_in_chapter = position == len(texts) - 1
             pieces = _pack_paragraph(text, language, limit)
@@ -100,6 +111,7 @@ def chunk_document(doc: Document, language: str, limit: int = CHUNK_LIMIT) -> li
                     pause = PAUSE_BETWEEN_CHAPTERS
                 else:
                     pause = PAUSE_BETWEEN_PARAGRAPHS
-                chunks.append(Chunk(text=piece, pause_after=pause))
+                if is_speakable(piece):
+                    chunks.append(Chunk(text=piece, pause_after=pause))
 
     return chunks

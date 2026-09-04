@@ -77,3 +77,43 @@ def test_report_lists_failed_chunks(tmp_path):
     assert report["failed"] == 1
     assert report["chunks"][0].startswith("первый")
     assert len(report["chunks"][0]) <= 200
+
+
+class ValueErrorEngine(FakeEngine):
+    """Движок кидает голый ValueError, как настоящий Silero на плохом куске."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def synth(self, text: str, voice: str, out_path: Path) -> None:
+        self.calls += 1
+        raise ValueError
+
+
+def test_value_error_from_the_engine_is_retried(tmp_path):
+    """Silero кидает голый ValueError на куске, который не смог разобрать.
+
+    Раньше он пролетал мимо повторов и ронял всю книгу на 1846 кусков.
+    """
+    engine = ValueErrorEngine()
+    cache = SynthCache(tmp_path)
+    path = cache.synth_or_silence(engine, "любой текст", "fake_a")
+    assert engine.calls == 3
+    assert cache.failures == ["любой текст"]
+    assert path.exists()
+
+
+def test_unknown_voice_is_still_rejected_immediately(tmp_path):
+    """Голос проверяем сами, до движка: тишина вместо всей книги это не выход."""
+    engine = ValueErrorEngine()
+    cache = SynthCache(tmp_path)
+    with pytest.raises(ValueError, match="неизвестный голос"):
+        cache.synth_or_silence(engine, "текст", "нет такого")
+    assert engine.calls == 0
+
+
+def test_empty_text_is_rejected_without_calling_the_engine(tmp_path):
+    engine = ValueErrorEngine()
+    with pytest.raises(ValueError, match="пустой текст"):
+        SynthCache(tmp_path).synth_or_silence(engine, "   ", "fake_a")
+    assert engine.calls == 0

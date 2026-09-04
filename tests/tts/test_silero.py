@@ -116,3 +116,37 @@ def test_hardcoded_voice_list_matches_model(model_id):
     speakers = list(engine._load().speakers)
     expected = [s for s in speakers if s.startswith("ru_")] or speakers
     assert VOICES[model_id] == expected
+
+
+# --- латиница ---
+
+
+def test_silero_transliterates_latin_before_synthesis():
+    """В таблице символов русской модели латиницы нет, она роняет apply_tts."""
+    prepared = SileroEngine().prepare("Специалисты E*Trade Bank и Sony Bank")
+    assert not any("a" <= c.lower() <= "z" for c in prepared)
+    assert "сони" in prepared
+
+
+def test_silero_keeps_russian_text_as_is():
+    text = "Обычный русский текст без латиницы."
+    assert SileroEngine().prepare(text) == text
+
+
+def test_silero_rejects_text_with_nothing_to_say():
+    """«* * *» и «Annotation» после подготовки пусты, синтезировать нечего."""
+    engine = SileroEngine()
+    assert engine.prepare("* * *").strip(" *") == ""
+
+
+@pytest.mark.slow
+def test_silero_survives_a_chunk_that_used_to_crash_it(tmp_path):
+    """Регрессия: KeyError 'e' на «E*Trade Bank» роняла всю книгу."""
+    engine = SileroEngine()
+    out = tmp_path / "latin.wav"
+    engine.synth(
+        "Специалисты E*Trade Bank и Sony Bank сейчас разрабатывают модели.",
+        "xenia",
+        out,
+    )
+    assert out.exists()

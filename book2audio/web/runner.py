@@ -237,5 +237,8 @@ class Runner:
         except NoTextLayer as exc:
             self.store.fail(job_id, str(exc))
         except Exception as exc:  # noqa: BLE001 — задача не должна ронять поток
-            self.store.fail(job_id, f"{type(exc).__name__}: {exc}")
+            # Silero кидает голый ValueError без текста, и на экране «Не
+            # получилось» оставалась пустая строка. Имя класса есть всегда.
+            detail = str(exc).strip() or "подробностей нет, смотрите лог сервера"
+            self.store.fail(job_id, f"{type(exc).__name__}: {detail}")
             traceback.print_exc()

@@ -137,3 +137,35 @@ def test_chapter_title_is_announced_once_end_to_end():
     )
     texts = [c.text for c in chunk_document(doc_with(ch), "ru")]
     assert texts.count("Глава 1 Императив роста") == 1
+
+
+# --- куски, в которых нечего произносить ---
+
+
+def test_scene_separator_is_not_a_chunk():
+    """«* * *» это разделитель сцен. Букв нет, движку он не по зубам."""
+    doc = Document(
+        "Книга",
+        None,
+        "ru",
+        [
+            Chapter(
+                "Глава",
+                [
+                    Block(kind="paragraph", text="Первый абзац."),
+                    Block(kind="paragraph", text="* * *"),
+                    Block(kind="paragraph", text="Второй абзац."),
+                ],
+            )
+        ],
+    )
+    texts = [c.text for c in chunk_document(doc, "ru")]
+    assert "* * *" not in texts
+    assert any("Первый" in t for t in texts)
+    assert any("Второй" in t for t in texts)
+
+
+def test_digits_alone_still_count_as_speakable():
+    """«1861» произносится, в отличие от «* * *»."""
+    doc = Document("Книга", None, "ru", [Chapter("Глава", [Block(kind="paragraph", text="1861")])])
+    assert [c.text for c in chunk_document(doc, "ru")] == ["Глава", "1861"]
