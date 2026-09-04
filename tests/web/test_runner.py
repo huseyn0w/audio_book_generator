@@ -231,3 +231,15 @@ def test_runner_keeps_the_cover_through_review(store, runner, tmp_path):
         check=True,
     )
     assert "codec_name=" in probe.stdout
+
+
+def test_runner_extracts_in_the_language_of_the_job(store, runner, tmp_path):
+    """Английская книга не должна нормализоваться русскими правилами."""
+    job = store.create(source=FIXTURES / "typeset_en.pdf", language="en", gender="male")
+    runner.start_extraction(job.id)
+    assert wait_for(lambda: store.get(job.id).state == State.READY)
+
+    text = " ".join(entry["text"] for entry in store.get_review(job.id))
+    letters = [ch for ch in text if ch.isalpha()]
+    cyrillic = sum(1 for ch in letters if "Ѐ" <= ch <= "ӿ")
+    assert cyrillic / len(letters) < 0.01

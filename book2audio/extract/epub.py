@@ -174,8 +174,11 @@ def _cover(book) -> bytes | None:
 
 
 class EpubExtractor:
-    def __init__(self, clean: bool = True) -> None:
+    def __init__(self, clean: bool = True, language: str | None = None) -> None:
         self.clean = clean
+        # Явный язык важнее метаданных: он же выбирает голос, а метаданные
+        # в книгах после конвертеров врут регулярно.
+        self.language = language
         self.report = None
 
     def extract(self, path: Path, selection: Selection | None = None) -> Document:
@@ -207,7 +210,7 @@ class EpubExtractor:
             values = book.get_metadata("DC", key)
             return values[0][0] if values else ""
 
-        language = (first("language") or "ru").lower()[:2]
+        language = self.language or (first("language") or "ru").lower()[:2]
         if language not in {"ru", "en"}:
             language = "ru"
 

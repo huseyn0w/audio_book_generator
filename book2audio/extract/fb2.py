@@ -156,8 +156,10 @@ def _cover(root) -> bytes | None:
 
 
 class Fb2Extractor:
-    def __init__(self, clean: bool = True) -> None:
+    def __init__(self, clean: bool = True, language: str | None = None) -> None:
         self.clean = clean
+        # См. EpubExtractor: выбранный голос главнее метаданных книги.
+        self.language = language
         self.report = None
 
     def extract(self, path: Path, selection: Selection | None = None) -> Document:
@@ -167,6 +169,7 @@ class Fb2Extractor:
             raise ValueError(f"файл не похож на FB2: {path.name}")
 
         title, author, language = _metadata(root)
+        language = self.language or language
         if language not in {"ru", "en"}:
             language = "ru"
 

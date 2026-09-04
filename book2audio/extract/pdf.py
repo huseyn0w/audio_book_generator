@@ -196,8 +196,12 @@ def chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) 
 
 
 class PdfExtractor:
-    def __init__(self, clean: bool = True) -> None:
+    def __init__(self, clean: bool = True, language: str = "ru") -> None:
         self.clean = clean
+        # В PDF языка нет ни в метаданных, ни в разметке, поэтому его называет
+        # тот, кто выбирает голос. Нормализация обязана совпадать с голосом:
+        # русские числительные внутри английской книги читаются как мусор.
+        self.language = language
         self.report: CleanReport | None = None
 
     def extract(self, path: Path, selection: Selection | None = None) -> Document:
@@ -227,7 +231,7 @@ class PdfExtractor:
         if not chapters:
             chapters = split_into_chapters(blocks, median_font_size(blocks))
 
-        language = "ru"
+        language = self.language
         if self.clean:
             for chapter in chapters:
                 chapter.title = normalize_for_speech(chapter.title, language)

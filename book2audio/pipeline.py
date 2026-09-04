@@ -43,12 +43,12 @@ EXTRACTORS: dict[str, Callable[..., Extractor]] = {
 ICLOUD_AUDIOBOOKS = Path.home() / "Library/Mobile Documents/com~apple~CloudDocs/Audiobooks"
 
 
-def pick_extractor(path: Path, clean: bool) -> Extractor:
+def pick_extractor(path: Path, clean: bool, language: str = "ru") -> Extractor:
     factory = EXTRACTORS.get(path.suffix.lower())
     if factory is None:
         known = ", ".join(sorted(EXTRACTORS))
         raise ValueError(f"неизвестный формат {path.suffix!r}, умею пока: {known}")
-    return factory(clean=clean)
+    return factory(clean=clean, language=language)
 
 
 def _safe_name(title: str) -> str:
@@ -95,7 +95,7 @@ def convert(
             on_progress(Progress(stage=stage, done=done, total=total))
 
     report("extract", 0, 1)
-    extractor = pick_extractor(path, clean)
+    extractor = pick_extractor(path, clean, language)
     document = extractor.extract(path, selection)
     clean_report = getattr(extractor, "report", None)
     if clean_report is not None:

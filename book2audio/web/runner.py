@@ -75,7 +75,8 @@ class Runner:
 
     def _extract(self, job: Job) -> None:
         self.store.set_state(job.id, State.EXTRACTING)
-        document = pick_extractor(job.source, clean=True).extract(job.source)
+        extractor = pick_extractor(job.source, clean=True, language=job.language)
+        document = extractor.extract(job.source)
         self.store.set_title(job.id, document.title)
         # Синтез пересобирает документ из правленого текста, обложка туда
         # не попадает. Кладём её на диск сейчас, пока она ещё в руках.

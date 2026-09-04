@@ -161,7 +161,7 @@ def chapters_of(
     """Показывает список глав с номерами для --chapters."""
     from book2audio.pipeline import pick_extractor
 
-    document = pick_extractor(path, clean=True).extract(path)
+    document = pick_extractor(path, clean=True, language=lang).extract(path)
     typer.echo(f"«{document.title}» — {len(document.chapters)} глав")
     for number, chapter in enumerate(document.chapters, start=1):
         minutes = chapter.char_count() / 15 / 60
