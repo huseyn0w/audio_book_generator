@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from book2audio.pipeline import EXTRACTORS, ICLOUD_AUDIOBOOKS
+from book2audio.preflight import INSTALL, NotEnoughSpace, check_space, missing_tools
 from book2audio.tts.base import DEFAULTS
 from book2audio.web.jobs import JobStore, State
 from book2audio.web.runner import Runner, build_engine
@@ -84,7 +85,13 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok"}
+        # Языка книги здесь ещё нет, поэтому спрашиваем обо всех инструментах.
+        absent = missing_tools()
+        return {
+            "status": "degraded" if absent else "ok",
+            "missing": absent,
+            "install": [INSTALL[tool] for tool in absent],
+        }
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -169,6 +176,15 @@ def create_app(
         job = require(job_id)
         if job.state not in {State.READY, State.UPLOADED, State.EXTRACTING}:
             raise HTTPException(status_code=409, detail=f"задача в состоянии {job.state.value}")
+
+        # Промежуточные wav занимают на порядок больше готового m4b. Узнать
+        # об этом на середине книги значит потерять весь прогон.
+        chapters = store.get_review(job_id) or []
+        chars = sum(len(c["text"]) for c in chapters if c.get("include", True))
+        try:
+            check_space(root / "work", chars)
+        except NotEnoughSpace as exc:
+            raise HTTPException(status_code=507, detail=str(exc)) from exc
         store.set_options(
             job_id,
             voice=payload.get("voice") or "",

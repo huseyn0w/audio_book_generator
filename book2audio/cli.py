@@ -9,6 +9,7 @@ import typer
 from book2audio.extract.base import NoTextLayer
 from book2audio.models import Selection
 from book2audio.pipeline import ICLOUD_AUDIOBOOKS, Progress, convert
+from book2audio.preflight import INSTALL, MissingTool, check_tools, missing_tools
 from book2audio.tts.base import TTSEngine, pick_default
 from book2audio.tts.fake import FakeEngine
 from book2audio.tts.kokoro import KokoroEngine
@@ -102,6 +103,12 @@ def convert_book(
     icloud: Annotated[bool, typer.Option(help="Копировать результат в папку iCloud Drive")] = True,
 ) -> None:
     """Превращает книгу в аудио."""
+    try:
+        check_tools(lang)
+    except MissingTool as exc:
+        typer.echo(f"Не получится: {exc}")
+        raise typer.Exit(code=1) from exc
+
     tts = build_engine(lang, engine)
     chosen = _resolve_voice(lang, voice, gender) if engine != "fake" else (voice or "fake_a")
 
@@ -182,6 +189,13 @@ def serve(
 ) -> None:
     """Поднимает веб-интерфейс."""
     import uvicorn
+
+    # Веб не знает языка книги заранее, поэтому спрашиваем обо всём сразу.
+    # Это предупреждение, а не отказ: русская книга без espeak-ng озвучится.
+    absent = missing_tools()
+    if absent:
+        commands = "; ".join(INSTALL[tool] for tool in absent)
+        typer.echo(f"внимание, не хватает: {', '.join(absent)}. Поставить: {commands}")
 
     typer.echo(f"открой http://{host}:{port}")
     uvicorn.run("book2audio.web.main:app", host=host, port=port, reload=reload)

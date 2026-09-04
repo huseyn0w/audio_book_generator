@@ -96,3 +96,38 @@ def test_serve_command_exists_and_defaults_to_localhost():
     defaults = {name: param.default for name, param in inspect.signature(serve).parameters.items()}
     assert defaults["host"] == "127.0.0.1"
     assert defaults["port"] == 8000
+
+
+def test_convert_stops_early_when_ffmpeg_is_missing(tmp_path, monkeypatch):
+    """Полчаса синтеза, а потом «нет ffmpeg» — худший из возможных порядков."""
+    monkeypatch.setattr("book2audio.preflight.shutil.which", lambda name: None)
+    result = runner.invoke(
+        app,
+        ["convert", str(FIXTURES / "toc_ru.pdf"), "--lang", "ru", "--engine", "fake"],
+    )
+    assert result.exit_code == 1
+    assert "brew install ffmpeg" in result.output
+
+
+def test_convert_does_not_demand_espeak_for_russian(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "book2audio.preflight.shutil.which",
+        lambda name: None if name == "espeak-ng" else "/opt/homebrew/bin/x",
+    )
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(FIXTURES / "toc_ru.pdf"),
+            "--lang",
+            "ru",
+            "--engine",
+            "fake",
+            "--pages",
+            "1-1",
+            "--out",
+            str(tmp_path),
+            "--no-icloud",
+        ],
+    )
+    assert result.exit_code == 0, result.output

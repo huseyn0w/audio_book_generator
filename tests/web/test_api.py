@@ -46,7 +46,7 @@ def test_health_endpoint_answers():
     from fastapi.testclient import TestClient as Client
 
     with Client(create_app(root=Path("/tmp/b2a-health"), engine_name="fake")) as c:
-        assert c.get("/health").json() == {"status": "ok"}
+        assert c.get("/health").json()["status"] in {"ok", "degraded"}
 
 
 def test_index_page_is_served(client):
@@ -252,3 +252,27 @@ async def test_progress_events_give_up_after_the_time_limit(tmp_path):
 
     chunks = [c async for c in progress_events(store, job.id, poll_seconds=0.01, max_seconds=0.2)]
     assert len(chunks) == 1
+
+
+def test_health_reports_missing_tools(client, monkeypatch):
+    monkeypatch.setattr("book2audio.preflight.shutil.which", lambda name: None)
+    payload = client.get("/health").json()
+    assert payload["status"] == "degraded"
+    assert payload["missing"] == ["ffmpeg", "espeak-ng"]
+    assert "brew install ffmpeg" in payload["install"]
+
+
+def test_health_is_ok_when_everything_is_installed(client, monkeypatch):
+    monkeypatch.setattr("book2audio.preflight.shutil.which", lambda name: "/opt/homebrew/bin/x")
+    payload = client.get("/health").json()
+    assert payload["status"] == "ok"
+    assert payload["missing"] == []
+
+
+def test_synthesize_refuses_when_disk_is_full(client, monkeypatch):
+    job_id = upload(client)
+    wait_for_state(client, job_id, "ready_for_review")
+    monkeypatch.setattr("book2audio.preflight.free_bytes", lambda path: 1024)
+    response = client.post(f"/api/jobs/{job_id}/synthesize", json={})
+    assert response.status_code == 507
+    assert "мало места" in response.json()["detail"]
