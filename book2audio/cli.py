@@ -91,12 +91,11 @@ def convert_book(
         str | None, typer.Option(help="Диапазон глав, например 1-3. Для EPUB и FB2")
     ] = None,
     audio_format: Annotated[str, typer.Option("--format", help="m4b или mp3")] = "m4b",
-    icloud: Annotated[bool, typer.Option(help="Копировать результат в папку iCloud Drive")] = True,
     copy_to: Annotated[
         str | None,
         typer.Option(
             "--copy-to",
-            help="Папка для готовой книги, например ~/Desktop/Аудиокниги. Важнее чем --icloud",
+            help="Папка для готовой книги, например ~/Desktop/Аудиокниги",
         ),
     ] = None,
 ) -> None:
@@ -104,7 +103,7 @@ def convert_book(
     if copy_to is not None and not copy_to.strip():
         raise typer.BadParameter("--copy-to не может быть пустым")
     chosen_folder = Path(copy_to) if copy_to else None
-    target_folder = destination(chosen_folder) if (copy_to or icloud) else None
+    target_folder = destination(chosen_folder)
 
     try:
         check_tools(lang)

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,46 +10,51 @@
 <main>
   <header>
     <h1>book2audio</h1>
-    <span class="eyebrow mono">pdf · epub · fb2</span>
+    <span class="eyebrow mono" data-i18n="app.tagline"></span>
+    <select id="ui-language" class="lang" data-i18n-aria="app.languageLabel">
+      <option value="en">EN</option>
+      <option value="ru">RU</option>
+    </select>
   </header>
 
   <!-- 1. загрузка -->
   <section id="screen-upload" class="screen active" aria-labelledby="h-upload">
-    <h2 id="h-upload">Загрузить книгу</h2>
+    <h2 id="h-upload" data-i18n="upload.title"></h2>
     <div id="dropzone" class="dropzone" tabindex="0" role="button"
-         aria-label="Перетащите файл книги или нажмите, чтобы выбрать">
-      <p><strong>Перетащите файл сюда</strong></p>
-      <p class="subtle">или нажмите, чтобы выбрать. PDF, EPUB или FB2</p>
+         data-i18n-aria="upload.dropAria">
+      <p><strong data-i18n="upload.drop"></strong></p>
+      <p class="subtle" data-i18n="upload.dropHint"></p>
       <input type="file" id="file" accept=".pdf,.epub,.fb2" hidden>
     </div>
 
     <div class="card" style="margin-top:24px">
       <div class="row">
         <div style="flex:1;min-width:160px">
-          <label for="language">Язык книги</label>
+          <label for="language" data-i18n="upload.bookLanguage"></label>
           <select id="language">
-            <option value="ru">Русский</option>
-            <option value="en">English</option>
+            <option value="ru" data-i18n="upload.russian"></option>
+            <option value="en" data-i18n="upload.english"></option>
           </select>
         </div>
         <div style="flex:1;min-width:160px">
-          <label for="gender">Голос</label>
+          <label for="gender" data-i18n="upload.voiceKind"></label>
           <select id="gender">
-            <option value="female">Женский</option>
-            <option value="male">Мужской</option>
+            <option value="female" data-i18n="upload.female"></option>
+            <option value="male" data-i18n="upload.male"></option>
           </select>
         </div>
         <div style="flex:1;min-width:160px">
-          <label for="pages">Страницы</label>
-          <input id="pages" type="text" inputmode="numeric" placeholder="вся книга"
+          <label for="pages" data-i18n="upload.pages"></label>
+          <input id="pages" type="text" inputmode="numeric"
+                 data-i18n-placeholder="upload.pagesPlaceholder"
                  aria-describedby="pages-hint">
-          <span id="pages-hint" class="hint">22-40, только PDF</span>
+          <span id="pages-hint" class="hint" data-i18n="upload.pagesHint"></span>
         </div>
         <div style="flex:1.8;min-width:280px">
-          <label for="voice">Диктор</label>
+          <label for="voice" data-i18n="upload.narrator"></label>
           <div class="voice-row">
-            <select id="voice"><option value="">по умолчанию</option></select>
-            <button id="listen" type="button" class="secondary">Прослушать</button>
+            <select id="voice"></select>
+            <button id="listen" type="button" class="secondary" data-i18n="upload.listen"></button>
           </div>
         </div>
       </div>
@@ -59,9 +64,8 @@
 
   <!-- 2. предпросмотр -->
   <section id="screen-review" class="screen" aria-labelledby="h-review">
-    <h2 id="h-review">Проверьте текст</h2>
-    <p class="muted">Синтез займёт время, поэтому мусор лучше убрать сейчас.
-       Снимите галочки с ненужных глав, поправьте текст прямо здесь.</p>
+    <h2 id="h-review" data-i18n="review.title"></h2>
+    <p class="muted" data-i18n="review.hint"></p>
 
     <p id="review-warning" class="warning" hidden role="alert"></p>
 
@@ -76,66 +80,67 @@
 
     <div class="row">
       <div style="flex:1;min-width:160px">
-        <label for="format">Формат</label>
+        <label for="format" data-i18n="review.format"></label>
         <select id="format">
-          <option value="m4b">m4b, один файл с главами</option>
-          <option value="mp3">mp3, папка по главам</option>
+          <option value="m4b" data-i18n="review.m4b"></option>
+          <option value="mp3" data-i18n="review.mp3"></option>
         </select>
       </div>
       <div style="flex:1.6;min-width:220px">
-        <label for="destination">Куда сохранить</label>
+        <label for="destination" data-i18n="review.destination"></label>
         <select id="destination"></select>
         <input id="destination-custom" type="text" hidden
-               placeholder="/Users/…/Аудиокниги" aria-label="Свой путь к папке">
+               data-i18n-placeholder="review.customPlaceholder"
+               data-i18n-aria="review.customAria">
         <span id="destination-hint" class="hint"></span>
       </div>
-      <button id="synth">Озвучить</button>
-      <button id="back" class="secondary">Другая книга</button>
+      <button id="synth" data-i18n="review.synthesize"></button>
+      <button id="back" class="secondary" data-i18n="review.another"></button>
     </div>
   </section>
 
   <!-- 3. прогресс -->
   <section id="screen-progress" class="screen" aria-labelledby="h-progress">
-    <h2 id="h-progress">Работаю</h2>
+    <h2 id="h-progress" data-i18n="progress.title"></h2>
     <p id="progress-title" class="mono muted"></p>
     <div class="card">
-      <div id="stage" role="status" aria-live="polite">готовлю</div>
+      <div id="stage" role="status" aria-live="polite" data-i18n="progress.preparing"></div>
       <div class="bar"><div id="bar-fill"></div></div>
       <div class="stat">
         <span id="counter" class="mono">0 / 0</span>
         <span id="eta"></span>
       </div>
     </div>
-    <button id="cancel" class="danger">Отменить</button>
+    <button id="cancel" class="danger" data-i18n="progress.cancel"></button>
   </section>
 
   <!-- 4. готово -->
   <section id="screen-done" class="screen" aria-labelledby="h-done">
-    <h2 id="h-done">Готово</h2>
+    <h2 id="h-done" data-i18n="done.title"></h2>
     <div class="card">
       <div id="done-title" class="mono"></div>
       <audio id="player" controls preload="none"></audio>
-      <p class="path" id="icloud-path"></p>
+      <p class="path" id="copy-path"></p>
       <p class="muted" id="done-report"></p>
     </div>
     <div class="row">
-      <button id="download">Скачать</button>
-      <button id="again" class="secondary">Ещё книга</button>
+      <button id="download" data-i18n="done.download"></button>
+      <button id="again" class="secondary" data-i18n="done.again"></button>
     </div>
   </section>
 
   <!-- ошибка -->
   <section id="screen-failed" class="screen" aria-labelledby="h-failed">
-    <h2 id="h-failed">Не получилось</h2>
+    <h2 id="h-failed" data-i18n="failed.title"></h2>
     <p id="failed-message" class="error" role="alert"></p>
     <div class="row">
-      <button id="retry-synth">Попробовать снова</button>
-      <button id="retry" class="secondary">Другая книга</button>
+      <button id="retry-synth" data-i18n="failed.retry"></button>
+      <button id="retry" class="secondary" data-i18n="failed.another"></button>
     </div>
-    <p class="hint">Озвученное берётся из кэша, повтор считает только то,
-       что не досчиталось.</p>
+    <p class="hint" data-i18n="failed.hint"></p>
   </section>
 </main>
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

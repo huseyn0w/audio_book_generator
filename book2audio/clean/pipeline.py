@@ -21,6 +21,15 @@ from book2audio.clean.pdf_layout import (
 from book2audio.clean.text import clean_text
 from book2audio.extract.layout import RawBlock, RawPage, median_font_size
 
+RULE_NAMES_RU = {
+    "running_heads": "колонтитулы",
+    "page_numbers": "колонцифры",
+    "figure_captions": "подписи к рисункам",
+    "listings": "листинги и таблицы",
+    "numeric_captions": "числовые подписи",
+    "footnotes": "сноски",
+}
+
 
 @dataclass
 class CleanReport:
@@ -41,10 +50,15 @@ class CleanReport:
         }
 
     def summary(self) -> str:
+        """Строка для CLI. Интерфейс собирает свою из dropped."""
         if not self.chars_before:
             return "чистить нечего"
         loss = 1 - self.chars_after / self.chars_before
-        parts = ", ".join(f"{name} {count}" for name, count in self.dropped.items() if count)
+        parts = ", ".join(
+            f"{RULE_NAMES_RU.get(name, name)} {count}"
+            for name, count in self.dropped.items()
+            if count
+        )
         tail = f": {parts}" if parts else ""
         return f"чистка убрала {loss:.1%} символов{tail}"
 
@@ -62,13 +76,15 @@ def clean_pages(pages: list[RawPage]) -> tuple[list[RawBlock], CleanReport]:
     report.chars_before = sum(p.char_count() for p in pages)
     median = median_font_size([b for p in pages for b in p.blocks] or [])
 
+    # Ключи, а не подписи: отчёт читают и CLI по-русски, и интерфейс
+    # на выбранном языке. Подпись выбирает тот, кто показывает.
     rules = [
-        ("колонтитулы", drop_running_heads),
-        ("колонцифры", drop_page_numbers),
-        ("подписи к рисункам", drop_figure_captions),
-        ("листинги и таблицы", drop_non_prose),
-        ("числовые подписи", lambda pgs: drop_numeric_captions(pgs, median)),
-        ("сноски", lambda pgs: drop_footnotes(pgs, median)),
+        ("running_heads", drop_running_heads),
+        ("page_numbers", drop_page_numbers),
+        ("figure_captions", drop_figure_captions),
+        ("listings", drop_non_prose),
+        ("numeric_captions", lambda pgs: drop_numeric_captions(pgs, median)),
+        ("footnotes", lambda pgs: drop_footnotes(pgs, median)),
     ]
     for name, rule in rules:
         before = _count(pages)

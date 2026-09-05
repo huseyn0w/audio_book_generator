@@ -11,7 +11,7 @@ import pytest
 from typer.testing import CliRunner
 
 from book2audio.cli import app
-from book2audio.pipeline import COPY_TO_ENV, ICLOUD_AUDIOBOOKS, destination
+from book2audio.pipeline import COPY_TO_ENV, destination
 from book2audio.web.main import create_app
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -21,9 +21,10 @@ runner = CliRunner()
 # --- разбор назначения ---
 
 
-def test_destination_defaults_to_icloud(monkeypatch):
+def test_no_copy_without_a_folder(monkeypatch):
+    """Книга забирается кнопкой «Скачать». Копия только если её попросили."""
     monkeypatch.delenv(COPY_TO_ENV, raising=False)
-    assert destination(None) == ICLOUD_AUDIOBOOKS
+    assert destination(None) is None
 
 
 def test_explicit_path_wins(tmp_path, monkeypatch):

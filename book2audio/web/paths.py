@@ -8,10 +8,11 @@ from pathlib import Path
 
 # Папки, которые предлагаются в интерфейсе. Полный путь набирать руками
 # неудобно, а этих трёх хватает почти всегда.
+# Ключ, а не подпись: подпись выбирает интерфейс на своём языке.
 SUGGESTED = (
-    ("Рабочий стол", "Desktop/Audiobooks"),
-    ("Загрузки", "Downloads/Audiobooks"),
-    ("Документы", "Documents/Audiobooks"),
+    ("desktop", "Desktop/Audiobooks"),
+    ("downloads", "Downloads/Audiobooks"),
+    ("documents", "Documents/Audiobooks"),
 )
 
 
@@ -22,11 +23,7 @@ class BadDestination(ValueError):
 def suggestions() -> list[dict]:
     """Готовые варианты папок с полными путями."""
     home = Path.home()
-    items = [{"label": label, "path": str(home / tail)} for label, tail in SUGGESTED]
-    from book2audio.pipeline import ICLOUD_AUDIOBOOKS
-
-    items.insert(0, {"label": "iCloud Drive", "path": str(ICLOUD_AUDIOBOOKS)})
-    return items
+    return [{"key": key, "path": str(home / tail)} for key, tail in SUGGESTED]
 
 
 def resolve_destination(value: str | None) -> Path | None:

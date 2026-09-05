@@ -40,17 +40,16 @@ def test_no_warning_for_a_few_borrowed_words():
 
 
 def test_warning_when_the_book_is_in_the_other_language():
-    text = "This book is written in English " * 20
-    warning = language_warning(text, "ru")
-    assert warning is not None
-    assert "английские" in warning.lower()
+    """Отдаём данные, а не фразу: интерфейс может быть на третьем языке."""
+    warning = language_warning("This book is written in English " * 20, "ru")
+    assert warning == {"expected": "ru", "found": "en", "share": 1.0}
 
 
 def test_warning_the_other_way_round():
-    text = "Эта книга написана по-русски " * 20
-    warning = language_warning(text, "en")
-    assert warning is not None
-    assert "русские" in warning.lower()
+    warning = language_warning("Эта книга написана по-русски " * 20, "en")
+    assert warning["expected"] == "en"
+    assert warning["found"] == "ru"
+    assert warning["share"] > 0.9
 
 
 def test_limit_sits_between_the_measured_groups():

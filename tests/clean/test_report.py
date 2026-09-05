@@ -17,7 +17,7 @@ def page(number, blocks, height=800.0):
 def test_report_counts_drops_per_rule():
     pages = [page(1, [blk("Обычный текст здесь."), blk("42", top=770.0, width=20.0)])]
     _, report = clean_pages(pages)
-    assert report.dropped["колонцифры"] == 1
+    assert report.dropped["page_numbers"] == 1
 
 
 def test_report_knows_how_many_blocks_survived():
@@ -82,7 +82,7 @@ def test_typeset_book_drops_real_noise():
 
     pages = read_pages(FIXTURES / "typeset_ru.pdf")
     _, report = clean_pages(pages)
-    assert report.dropped["подписи к рисункам"] >= 20
+    assert report.dropped["figure_captions"] >= 20
 
 
 def test_no_rule_eats_more_than_half_of_a_real_book():

@@ -7,13 +7,14 @@ locally, no cloud and no paid APIs.
 
 Takes a book, strips running heads, page numbers, footnotes and figure
 captions, shows you the result to check, reads it aloud and builds an m4b
-with chapters and cover art. The finished file lands in iCloud Drive, where
-it shows up in Files on the iPhone by itself.
+with chapters and cover art. You download the finished file from the browser,
+on a phone or a computer, or point it at a folder to copy into.
 
-The review screen tells you how long the audio will be, how long the
-synthesis will take, lets you pick the folder the finished book goes to,
-and warns you if the text is not in the language you picked. The done
-screen shows what the cleaning removed.
+The interface is in English, with a Russian switch in the header. The
+review screen tells you how long the audio will be, how long the synthesis
+will take, lets you pick a folder to copy the finished book into, and warns
+you if the text is not in the language you picked. The done screen shows
+what the cleaning removed.
 
 ## Install
 
@@ -32,7 +33,7 @@ is needed.
 ```bash
 uv run book2audio serve
 
-# put finished books somewhere else
+# also copy every finished book into a folder
 uv run book2audio serve --copy-to ~/Desktop/Audiobooks
 ```
 

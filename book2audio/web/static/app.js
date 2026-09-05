@@ -31,12 +31,16 @@ async function loadVoices() {
   const data = await response.json();
   const select = $("voice");
   const preferred = data.defaults[gender];
-  select.innerHTML = '<option value="">по умолчанию</option>';
+  select.innerHTML = "";
+  const fallback = document.createElement("option");
+  fallback.value = "";
+  fallback.textContent = t("upload.defaultVoice");
+  select.append(fallback);
   for (const voice of data.voices) {
     if (voice.gender !== gender && voice.gender !== "unknown") continue;
     const option = document.createElement("option");
     option.value = voice.id;
-    option.textContent = voice.id + (voice.id === preferred ? " (по умолчанию)" : "");
+    option.textContent = voice.id + (voice.id === preferred ? t("upload.defaultSuffix") : "");
     select.append(option);
   }
 }
@@ -53,15 +57,15 @@ async function playSample() {
 
   if (sample) sample.pause();
   button.disabled = true;
-  button.textContent = "Готовлю";
+  button.textContent = t("upload.preparing");
   try {
     sample = new Audio(`/api/sample?language=${language}&voice=${voice}`);
     await sample.play();
   } catch {
-    showError("не получилось проиграть образец");
+    showError(t("upload.sampleFailed"));
   } finally {
     button.disabled = false;
-    button.textContent = "Прослушать";
+    button.textContent = t("upload.listen");
   }
 }
 
@@ -78,12 +82,12 @@ async function upload(file) {
   const response = await fetch("/api/jobs", { method: "POST", body });
   const data = await response.json();
   if (!response.ok) {
-    showError(data.detail || "не удалось загрузить файл");
+    showError(data.detail || t("upload.failed"));
     return;
   }
   jobId = data.id;
   show("progress");
-  $("stage").textContent = "читаю книгу";
+  $("stage").textContent = t("progress.extract");
   $("counter").textContent = "";
   watch();
 }
@@ -140,22 +144,24 @@ async function loadDestinations() {
   if (!response.ok) return;
   const { destination, suggestions } = await response.json();
 
-  const options = [{ label: "Как задано при запуске", path: "" }, ...suggestions];
+  const serverFolder = destination ? t("review.serverFolder") : t("review.noCopy");
+  const options = [{ label: serverFolder, path: "" }, ...suggestions];
   for (const item of options) {
     const option = document.createElement("option");
     option.value = item.path;
-    option.textContent = item.label;
+    // Первый вариант уже переведён, остальные приходят ключами.
+    option.textContent = item.key ? t("review." + item.key) : item.label;
     select.append(option);
   }
   const other = document.createElement("option");
   other.value = CUSTOM;
-  other.textContent = "Другая папка…";
+  other.textContent = t("review.otherFolder");
   select.append(other);
 
   const hint = $("destination-hint");
   hint.textContent = destination
-    ? `по умолчанию ${shortPath(destination)}`
-    : "по умолчанию копия никуда не кладётся";
+    ? t("review.defaultFolder", { path: shortPath(destination) })
+    : t("review.noDefaultFolder");
   hint.title = destination || "";
 
   select.addEventListener("change", () => {
@@ -175,9 +181,12 @@ function chosenDestination() {
 // «0.3 мин» читается хуже, чем «минуты», а «95 мин» хуже, чем «1 ч 35 мин».
 // Формы согласованы с «займёт около ...», отсюда родительный падеж.
 function synthTime(minutes) {
-  if (minutes < 1) return "минуты";
-  if (minutes < 60) return `${Math.round(minutes)} мин`;
-  return `${Math.floor(minutes / 60)} ч ${Math.round(minutes % 60)} мин`;
+  if (minutes < 1) return t("review.underMinute");
+  if (minutes < 60) return t("review.minutes", { count: Math.round(minutes) });
+  return t("review.hours", {
+    hours: Math.floor(minutes / 60),
+    minutes: Math.round(minutes % 60),
+  });
 }
 
 async function openReview() {
@@ -188,12 +197,23 @@ async function openReview() {
 
   $("review-title").textContent = data.title || "";
   $("review-size").textContent =
-    `${data.chars.toLocaleString("ru")} символов, примерно ${data.minutes} мин звучания, ` +
-    `синтез займёт около ${synthTime(data.synth_minutes)}`;
+    t("review.size", {
+      chars: data.chars.toLocaleString(language),
+      minutes: data.minutes,
+      synth: synthTime(data.synth_minutes),
+    });
 
   const warning = $("review-warning");
-  warning.textContent = data.warning || "";
   warning.hidden = !data.warning;
+  if (data.warning) {
+    const { expected, found, share } = data.warning;
+    warning.textContent = t("review.wrongLanguage", {
+      expected: t(expected === "ru" ? "review.languageRu" : "review.languageEn"),
+      // Отдельная форма: «буквы английские», а не «буквы английский».
+      found: t(found === "ru" ? "review.lettersRu" : "review.lettersEn"),
+      share: Math.round(share * 100) + "%",
+    });
+  }
 
   const host = $("chapters");
   host.innerHTML = "";
@@ -208,25 +228,25 @@ async function openReview() {
     checkbox.type = "checkbox";
     checkbox.checked = chapter.include !== false;
     checkbox.id = "ch-" + index;
-    checkbox.setAttribute("aria-label", "Озвучивать главу " + (chapter.title || index + 1));
+    checkbox.setAttribute("aria-label", t("review.chapterAria", { name: chapter.title || index + 1 }));
 
     const title = document.createElement("label");
     title.className = "chapter-title";
     title.htmlFor = checkbox.id;
-    title.textContent = chapter.title || `Глава ${index + 1}`;
+    title.textContent = chapter.title || t("review.chapterFallback", { number: index + 1 });
 
     const size = document.createElement("span");
     size.className = "subtle mono";
-    size.textContent = Math.round(chapter.text.length / 15 / 60) + " мин";
+    size.textContent = t("review.minutes", { count: Math.round(chapter.text.length / 15 / 60) });
 
     head.append(checkbox, title, size);
 
     const details = document.createElement("details");
     const summary = document.createElement("summary");
-    summary.textContent = "текст";
+    summary.textContent = t("review.text");
     const area = document.createElement("textarea");
     area.value = chapter.text;
-    area.setAttribute("aria-label", "Текст главы " + (chapter.title || index + 1));
+    area.setAttribute("aria-label", t("review.chapterTextAria", { name: chapter.title || index + 1 }));
     details.append(summary, area);
 
     block.append(head, details);
@@ -268,7 +288,7 @@ async function startSynthesis() {
 
 // --- прогресс ---
 
-const STAGE_NAMES = { extract: "читаю книгу", synth: "озвучиваю", assemble: "склеиваю" };
+const STAGE_KEYS = { extract: "progress.extract", synth: "progress.synth", assemble: "progress.assemble" };
 
 function watch() {
   if (stream) stream.close();
@@ -299,7 +319,7 @@ function render(job) {
     if (stream) stream.close();
     stream = null;
     $("failed-message").textContent =
-      job.error || "задача отменена";
+      job.error || t("failed.cancelled");
     show("failed");
     return;
   }
@@ -308,7 +328,7 @@ function render(job) {
   // Заголовок держит название книги, строка ниже — стадию: дублировать одно
   // и то же слово в двух местах бессмысленно.
   $("progress-title").textContent = job.title || "";
-  $("stage").textContent = STAGE_NAMES[job.stage] || "готовлю";
+  $("stage").textContent = t(STAGE_KEYS[job.stage] || "progress.preparing");
   if (job.total > 0) {
     const share = job.done / job.total;
     $("bar-fill").style.width = (share * 100).toFixed(1) + "%";
@@ -316,22 +336,41 @@ function render(job) {
     const elapsed = (Date.now() - startedAt) / 1000;
     if (share > 0.02 && startedAt) {
       const left = elapsed / share - elapsed;
-      $("eta").textContent = "осталось примерно " + Math.ceil(left / 60) + " мин";
+      $("eta").textContent = t("progress.eta", { count: Math.ceil(left / 60) });
     }
   }
 }
 
 async function showDestination() {
-  const box = $("icloud-path");
+  const box = $("copy-path");
   box.textContent = "";
   try {
     const response = await fetch("/api/settings");
     if (!response.ok) return;
     const { destination } = await response.json();
-    box.textContent = destination ? `Копия лежит в ${destination}` : "Копия никуда не делалась";
+    box.textContent = destination
+      ? t("done.copiedTo", { path: shortPath(destination) })
+      : t("done.downloadOnly");
   } catch {
     // Путь это справка. Книга уже готова, молчим.
   }
+}
+
+// Сервер отдаёт числа и ключи правил, фраза собирается здесь: язык
+// интерфейса не обязан совпадать с языком книги.
+function reportText(data) {
+  const lines = [];
+  const clean = data.clean;
+  if (clean && clean.chars_before) {
+    const percent = Math.round((1 - clean.chars_after / clean.chars_before) * 100) + "%";
+    const rules = Object.entries(clean.dropped || {})
+      .filter(([, count]) => count)
+      .map(([rule, count]) => t("rule." + rule, { count }))
+      .join(", ");
+    lines.push(rules ? t("done.cleanedRules", { percent, rules }) : t("done.cleaned", { percent }));
+  }
+  if (data.synth?.failed) lines.push(t("done.failedChunks", { count: data.synth.failed }));
+  return lines.join(". ");
 }
 
 async function showReport(id) {
@@ -341,10 +380,7 @@ async function showReport(id) {
     const response = await fetch(`/api/jobs/${id}/report`);
     if (!response.ok) return;
     const data = await response.json();
-    const lines = [];
-    if (data.clean?.summary) lines.push(data.clean.summary);
-    if (data.synth?.failed) lines.push(`не озвучилось кусков: ${data.synth.failed}`);
-    box.textContent = lines.join(". ");
+    box.textContent = reportText(data);
   } catch {
     // Отчёт это справка, а не результат. Молчим, книга уже готова.
   }
@@ -368,7 +404,16 @@ function reset() {
   show("upload");
 }
 
+function wireLanguage() {
+  const select = $("ui-language");
+  language = readSavedLanguage();
+  select.value = language;
+  select.addEventListener("change", () => setLanguage(select.value));
+  applyLanguage();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  wireLanguage();
   wireDropzone();
   loadVoices();
   $("language").addEventListener("change", loadVoices);
@@ -392,7 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) {
       // Экран ошибки свой, блок ошибки экрана загрузки отсюда не виден.
       $("failed-message").textContent =
-        (await response.json()).detail || "не получилось перезапустить";
+        (await response.json()).detail || t("failed.retryFailed");
       return;
     }
     watch();

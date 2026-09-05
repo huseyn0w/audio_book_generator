@@ -14,11 +14,6 @@ LATIN = frozenset("abcdefghijklmnopqrstuvwxyz")
 # измеренными группами широкий зазор, граница поставлена в его начале.
 FOREIGN_LIMIT = 0.25
 
-LANGUAGE_NAMES = {"ru": "русский", "en": "английский"}
-
-# Отдельная форма: «буквы английские», а не «буквы английскийе».
-LETTER_NAMES = {"ru": "русские", "en": "английские"}
-
 
 def _is_cyrillic(char: str) -> bool:
     return CYRILLIC[0] <= char <= CYRILLIC[1]
@@ -36,13 +31,17 @@ def foreign_share(text: str, language: str) -> float:
     return foreign / len(letters)
 
 
-def language_warning(text: str, language: str) -> str | None:
-    """Текст предупреждения или None, если язык похож на правду."""
+def language_warning(text: str, language: str) -> dict | None:
+    """Данные для предупреждения или None, если язык похож на правду.
+
+    Возвращаем числа и коды языков, а не готовую фразу: интерфейс собирает
+    её на своём языке, а он не обязан совпадать с языком книги.
+    """
     share = foreign_share(text, language)
     if share <= FOREIGN_LIMIT:
         return None
-    other = "en" if language == "ru" else "ru"
-    return (
-        f"Выбран {LANGUAGE_NAMES[language]} язык, но {share:.0%} букв в книге "
-        f"{LETTER_NAMES[other]}. Проверьте выбор: голос читает на одном языке."
-    )
+    return {
+        "expected": language,
+        "found": "en" if language == "ru" else "ru",
+        "share": round(share, 2),
+    }

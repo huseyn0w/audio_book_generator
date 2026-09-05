@@ -60,7 +60,6 @@ def test_convert_command_runs_end_to_end_with_the_fake_engine(tmp_path):
             "fake",
             "--voice",
             "fake_a",
-            "--no-icloud",
         ],
     )
     assert result.exit_code == 0, result.stdout
@@ -127,7 +126,6 @@ def test_convert_does_not_demand_espeak_for_russian(tmp_path, monkeypatch):
             "1-1",
             "--out",
             str(tmp_path),
-            "--no-icloud",
         ],
     )
     assert result.exit_code == 0, result.output

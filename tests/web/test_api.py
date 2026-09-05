@@ -295,8 +295,8 @@ def test_review_warns_about_the_wrong_language(client):
     job_id = upload(client, name="typeset_en.pdf", language="ru")
     wait_for_state(client, job_id, "ready_for_review")
     body = client.get(f"/api/jobs/{job_id}/review").json()
-    assert body["warning"]
-    assert "английские" in body["warning"]
+    # Данные, а не фраза: язык интерфейса не обязан совпадать с языком книги.
+    assert body["warning"] == {"expected": "ru", "found": "en", "share": 0.88}
 
 
 def test_review_is_quiet_when_the_language_matches(client):

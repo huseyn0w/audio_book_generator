@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from book2audio.models import parse_page_spec
-from book2audio.pipeline import EXTRACTORS, ICLOUD_AUDIOBOOKS, destination
+from book2audio.pipeline import EXTRACTORS, destination
 from book2audio.preflight import INSTALL, NotEnoughSpace, check_space, missing_tools
 from book2audio.script_check import language_warning
 from book2audio.tts.base import DEFAULTS
@@ -70,12 +70,11 @@ async def progress_events(
 def create_app(
     root: Path | None = None,
     engine_name: str = "",
-    copy_to: Path | None = ICLOUD_AUDIOBOOKS,
+    copy_to: Path | None = None,
 ) -> FastAPI:
-    # Умолчание аргумента годится для тестов, но запуск через uvicorn идёт
-    # по строке импорта, и путь приезжает из окружения.
-    if copy_to is ICLOUD_AUDIOBOOKS:
-        copy_to = destination(None)
+    # Запуск через uvicorn идёт по строке импорта, аргумент туда не передать,
+    # поэтому путь приезжает из окружения.
+    copy_to = copy_to or destination(None)
     root = Path(root or Path.home() / ".book2audio")
     uploads = root / "uploads"
     uploads.mkdir(parents=True, exist_ok=True)

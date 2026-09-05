@@ -48,9 +48,15 @@ def test_existing_file_is_refused(tmp_path):
 
 
 def test_suggestions_include_the_desktop():
-    names = {s["label"] for s in suggestions()}
-    assert "Рабочий стол" in names
+    """Ключи, а не подписи: подпись выбирает интерфейс на своём языке."""
+    keys = {s["key"] for s in suggestions()}
+    assert keys == {"desktop", "downloads", "documents"}
     assert any("Desktop" in s["path"] for s in suggestions())
+
+
+def test_suggestions_carry_no_prose():
+    for item in suggestions():
+        assert set(item) == {"key", "path"}
 
 
 def test_suggestions_are_absolute():

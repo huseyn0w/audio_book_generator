@@ -86,11 +86,11 @@ def test_upload_screen_has_a_page_range_field():
 
 
 def test_synthesis_time_agrees_with_the_sentence():
-    """Строка читается как «синтез займёт около ...», значит родительный падеж."""
-    js = _static("app.js")
-    assert "займёт около ${synthTime" in js
-    assert 'return "минуту"' not in js
-    assert 'return "минуты"' in js
+    """Русская строка читается как «синтез займёт около ...», отсюда падеж."""
+    strings = _static("i18n.js")
+    assert '"review.underMinute": "минуты"' in strings
+    assert '"review.underMinute": "минуту"' not in strings
+    assert "синтез займёт около {synth}" in strings
 
 
 def test_failed_screen_offers_a_retry():

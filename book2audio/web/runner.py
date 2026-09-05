@@ -22,7 +22,7 @@ from book2audio.audio import concat, silence
 from book2audio.chunker import chunk_document
 from book2audio.extract.base import NoTextLayer
 from book2audio.models import Block, Chapter, Document, parse_page_spec
-from book2audio.pipeline import ICLOUD_AUDIOBOOKS, pick_extractor
+from book2audio.pipeline import pick_extractor
 from book2audio.tts.base import TTSEngine, pick_default
 from book2audio.tts.cache import SynthCache
 from book2audio.tts.fake import FakeEngine
@@ -48,7 +48,7 @@ class Runner:
         work_root: Path,
         out_root: Path,
         engine_name: str = "",
-        copy_to: Path | None = ICLOUD_AUDIOBOOKS,
+        copy_to: Path | None = None,
         cache_root: Path | None = None,
     ) -> None:
         self.store = store

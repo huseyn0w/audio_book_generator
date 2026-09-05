@@ -11,8 +11,9 @@ CSS = (STATIC / "style.css").read_text(encoding="utf-8")
 JS = (STATIC / "app.js").read_text(encoding="utf-8")
 
 
-def test_page_declares_russian_language():
-    assert '<html lang="ru">' in HTML
+def test_page_declares_english_by_default():
+    """Интерфейс по умолчанию английский, переключатель меняет lang на лету."""
+    assert '<html lang="en">' in HTML
 
 
 def test_page_has_exactly_one_h1():
@@ -121,10 +122,13 @@ def test_every_pipeline_stage_has_a_russian_label(stage):
 
 
 def test_progress_heading_does_not_duplicate_the_stage_line():
-    """Заголовок «Озвучиваю» над строкой «озвучиваю» это шум."""
-    stage_labels = {"озвучиваю", "читаю книгу", "склеиваю"}
-    heading = re.search(r'<h2 id="h-progress">([^<]+)</h2>', HTML).group(1)
-    assert heading.lower() not in stage_labels
+    """Заголовок «Озвучиваю» над строкой «озвучиваю» это шум.
+
+    Текст теперь в словарях, поэтому сверяем ключи, а не подписи.
+    """
+    stage_keys = {"progress.extract", "progress.synth", "progress.assemble"}
+    heading = re.search(r'<h2 id="h-progress" data-i18n="([^"]+)"', HTML).group(1)
+    assert heading not in stage_keys
 
 
 def test_progress_screen_shows_the_book_title():
