@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from book2audio.web.jobs import Job, JobStore, State
@@ -134,3 +136,36 @@ def test_job_dataclass_reports_whether_it_is_running():
     assert not Job(
         id="x", source="/tmp/a.pdf", language="ru", gender="female", state=State.DONE
     ).is_active()
+
+
+# --- перезапуск упавшей задачи ---
+
+
+def test_failed_job_can_be_retried(store):
+    """Падение на сборке не должно стоить всей озвучки заново."""
+    job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
+    store.fail(job.id, "ffmpeg не справился")
+    store.set_state(job.id, State.SYNTHESIZING)
+    assert store.get(job.id).state == State.SYNTHESIZING
+
+
+def test_retry_clears_the_old_error(store):
+    job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
+    store.fail(job.id, "ffmpeg не справился")
+    store.set_state(job.id, State.SYNTHESIZING)
+    assert not store.get(job.id).error
+
+
+def test_done_job_still_cannot_go_back(store):
+    """Готовую книгу пересчитывать незачем, это по-прежнему запрещено."""
+    job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
+    store.finish(job.id, Path("книга.m4b"))
+    with pytest.raises(ValueError, match="нельзя перевести"):
+        store.set_state(job.id, State.SYNTHESIZING)
+
+
+def test_cancelled_job_still_cannot_go_back(store):
+    job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
+    store.cancel(job.id)
+    with pytest.raises(ValueError, match="нельзя перевести"):
+        store.set_state(job.id, State.SYNTHESIZING)

@@ -91,3 +91,9 @@ def test_synthesis_time_agrees_with_the_sentence():
     assert "займёт около ${synthTime" in js
     assert 'return "минуту"' not in js
     assert 'return "минуты"' in js
+
+
+def test_failed_screen_offers_a_retry():
+    """Падение на сборке лечится повтором, а не новой загрузкой книги."""
+    assert 'id="retry-synth"' in _static("index.html")
+    assert "retry-synth" in _static("app.js")

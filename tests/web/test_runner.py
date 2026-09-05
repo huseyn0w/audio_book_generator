@@ -261,3 +261,57 @@ def test_failure_message_is_never_empty(store, runner, tmp_path, monkeypatch):
     assert message.strip()
     assert message.strip() != "ValueError:"
     assert "ValueError" in message
+
+
+def test_cache_is_shared_between_jobs(store, tmp_path):
+    """Кэш адресуется по содержимому, привязка к задаче делает повтор бесплатным
+    только внутри одной задачи. Загрузка той же книги считала всё заново."""
+    calls = {"n": 0}
+
+    from book2audio.tts.fake import FakeEngine
+
+    class Counting(FakeEngine):
+        def synth(self, text, voice, out_path):
+            calls["n"] += 1
+            super().synth(text, voice, out_path)
+
+    worker = Runner(
+        store,
+        work_root=tmp_path / "work",
+        out_root=tmp_path / "out",
+        cache_root=tmp_path / "cache",
+        engine_name="fake",
+    )
+    worker._engine_for = lambda language: Counting()
+    try:
+        first = store.create(source=FIXTURES / "book_ru.fb2", language="ru", gender="female")
+        worker.start_extraction(first.id)
+        assert wait_for(lambda: store.get(first.id).state == State.READY)
+        worker.enqueue(first.id)
+        assert wait_for(lambda: store.get(first.id).state == State.DONE)
+        after_first = calls["n"]
+        assert after_first > 0
+
+        second = store.create(source=FIXTURES / "book_ru.fb2", language="ru", gender="female")
+        worker.start_extraction(second.id)
+        assert wait_for(lambda: store.get(second.id).state == State.READY)
+        worker.enqueue(second.id)
+        assert wait_for(lambda: store.get(second.id).state == State.DONE)
+    finally:
+        worker.stop()
+
+    assert calls["n"] == after_first, "вторая задача синтезировала заново"
+
+
+def test_deleting_a_job_keeps_the_shared_cache(store, tmp_path):
+    """Удаление задачи не должно стирать чужую работу."""
+    cache_root = tmp_path / "cache"
+    worker = Runner(
+        store,
+        work_root=tmp_path / "work",
+        out_root=tmp_path / "out",
+        cache_root=cache_root,
+        engine_name="fake",
+    )
+    worker.stop()
+    assert cache_root not in (tmp_path / "work").parents

@@ -28,6 +28,10 @@ class State(str, Enum):
 ACTIVE_STATES = {State.EXTRACTING, State.QUEUED, State.SYNTHESIZING}
 FINAL_STATES = {State.DONE, State.FAILED, State.CANCELLED}
 
+# Из этих состояний назад пути нет. FAILED сюда не входит: падение на сборке
+# не должно стоить всей озвучки заново, а кэш делает повтор почти бесплатным.
+IRREVERSIBLE_STATES = {State.DONE, State.CANCELLED}
+
 
 @dataclass
 class Job:
@@ -169,12 +173,13 @@ class JobStore:
         return job
 
     def set_state(self, job_id: str, state: State) -> None:
-        """Из конечного состояния назад пути нет: иначе готовая книга пересчитается."""
+        """Готовую и отменённую задачу назад не пускаем, упавшую пускаем."""
         current = self._require(job_id)
-        if current.state in FINAL_STATES and state not in FINAL_STATES:
+        if current.state in IRREVERSIBLE_STATES and state not in FINAL_STATES:
             raise ValueError(f"нельзя перевести задачу из {current.state.value} в {state.value}")
         with self._connect() as db:
-            db.execute("UPDATE jobs SET state = ? WHERE id = ?", (state.value, job_id))
+            # Старая ошибка вместе с уходом из FAILED теряет смысл.
+            db.execute("UPDATE jobs SET state = ?, error = '' WHERE id = ?", (state.value, job_id))
 
     def mark_queued(self, job_id: str) -> None:
         self.set_state(job_id, State.QUEUED)

@@ -82,6 +82,7 @@ def create_app(
         out_root=root / "output",
         engine_name=engine_name,
         copy_to=copy_to,
+        cache_root=root / "cache",
     )
 
     app = FastAPI(title="book2audio", docs_url=None, redoc_url=None)
@@ -234,7 +235,9 @@ def create_app(
     def synthesize(job_id: str, payload: Annotated[dict | None, Body()] = None) -> dict:
         payload = payload or {}
         job = require(job_id)
-        if job.state not in {State.READY, State.UPLOADED, State.EXTRACTING}:
+        # FAILED здесь намеренно: упавшую задачу можно перезапустить, кэш
+        # синтеза общий, так что повтор стоит только сборки.
+        if job.state not in {State.READY, State.UPLOADED, State.EXTRACTING, State.FAILED}:
             raise HTTPException(status_code=409, detail=f"задача в состоянии {job.state.value}")
 
         # Промежуточные wav занимают на порядок больше готового m4b. Узнать

@@ -366,3 +366,18 @@ def test_page_range_is_ignored_for_formats_without_pages(client):
         )
     assert response.status_code == 400
     assert "страниц" in response.json()["detail"]
+
+
+def test_synthesize_accepts_a_failed_job(client):
+    job_id = upload(client)
+    wait_for_state(client, job_id, "ready_for_review")
+    client.app.state.store.fail(job_id, "ffmpeg не справился")
+    response = client.post(f"/api/jobs/{job_id}/synthesize", json={})
+    assert response.status_code == 202
+
+
+def test_synthesize_still_refuses_a_finished_job(client):
+    job_id = upload(client)
+    wait_for_state(client, job_id, "ready_for_review")
+    client.app.state.store.finish(job_id, Path("книга.m4b"))
+    assert client.post(f"/api/jobs/{job_id}/synthesize", json={}).status_code == 409

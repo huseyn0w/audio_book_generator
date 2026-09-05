@@ -6,13 +6,12 @@ m4b это стандарт аудиокниг: один файл, главы в
 """
 
 import re
-import subprocess
 import tempfile
 import wave
 from dataclasses import dataclass
 from pathlib import Path
 
-from book2audio.audio import concat
+from book2audio.audio import concat, run_ffmpeg
 from book2audio.models import Document
 
 BITRATE = "64k"
@@ -102,7 +101,7 @@ def write_m4b(
         if cover:
             command += ["-map", "2:v", "-c:v", "mjpeg", "-disposition:v", "attached_pic"]
         command += ["-c:a", "aac", "-b:a", BITRATE, "-ac", "1", "-f", "mp4", str(target)]
-        subprocess.run(command, check=True, capture_output=True)
+        run_ffmpeg(command)
     return target
 
 
@@ -134,7 +133,7 @@ def write_mp3_per_chapter(chapters: list[ChapterAudio], document: Document, fold
         if document.author:
             command += ["-metadata", f"artist={document.author}"]
         command.append(str(target))
-        subprocess.run(command, check=True, capture_output=True)
+        run_ffmpeg(command)
     return folder
 
 

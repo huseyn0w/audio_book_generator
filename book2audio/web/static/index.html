@@ -121,7 +121,12 @@
   <section id="screen-failed" class="screen" aria-labelledby="h-failed">
     <h2 id="h-failed">Не получилось</h2>
     <p id="failed-message" class="error" role="alert"></p>
-    <button id="retry" class="secondary">Другая книга</button>
+    <div class="row">
+      <button id="retry-synth">Попробовать снова</button>
+      <button id="retry" class="secondary">Другая книга</button>
+    </div>
+    <p class="hint">Озвученное берётся из кэша, повтор считает только то,
+       что не досчиталось.</p>
   </section>
 </main>
 <script src="/static/app.js"></script>

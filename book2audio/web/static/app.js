@@ -309,6 +309,22 @@ document.addEventListener("DOMContentLoaded", () => {
   $("back").addEventListener("click", reset);
   $("again").addEventListener("click", reset);
   $("retry").addEventListener("click", reset);
+  $("retry-synth").addEventListener("click", async () => {
+    if (!jobId) return reset();
+    const response = await fetch(`/api/jobs/${jobId}/synthesize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ format: $("format").value, voice: $("voice").value }),
+    });
+    if (!response.ok) {
+      // Экран ошибки свой, блок ошибки экрана загрузки отсюда не виден.
+      $("failed-message").textContent =
+        (await response.json()).detail || "не получилось перезапустить";
+      return;
+    }
+    watch();
+    show("progress");
+  });
   $("download").addEventListener("click", () => {
     window.location.href = `/api/jobs/${jobId}/download`;
   });

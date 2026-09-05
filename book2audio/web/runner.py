@@ -49,10 +49,15 @@ class Runner:
         out_root: Path,
         engine_name: str = "",
         copy_to: Path | None = ICLOUD_AUDIOBOOKS,
+        cache_root: Path | None = None,
     ) -> None:
         self.store = store
         self.work_root = Path(work_root)
         self.out_root = Path(out_root)
+        # Кэш общий на все задачи и лежит вне work: ключ считается от текста,
+        # голоса и версии движка, задача тут ни при чём. Раньше он лежал
+        # внутри work/<job_id>, и повторная загрузка книги считала всё заново.
+        self.cache_root = Path(cache_root) if cache_root else self.work_root.parent / "cache"
         self.engine_name = engine_name
         self.copy_to = copy_to
         # Один рабочий поток: синтез упирается в CPU, параллелить нечего.
@@ -170,7 +175,7 @@ class Runner:
 
         work = self.work_root / job.id
         work.mkdir(parents=True, exist_ok=True)
-        cache = SynthCache(work / "cache")
+        cache = SynthCache(self.cache_root)
         pauses = work / "pauses"
         pauses.mkdir(exist_ok=True)
         chapters_dir = work / "chapters"
