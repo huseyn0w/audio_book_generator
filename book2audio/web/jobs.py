@@ -42,6 +42,8 @@ class Job:
     state: State = State.UPLOADED
     voice: str | None = None
     selection: str | None = None
+    # Папка для этой книги. Пусто значит папку, заданную при запуске сервера.
+    destination: str | None = None
     audio_format: str = "m4b"
     stage: str = ""
     done: int = 0
@@ -99,6 +101,10 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 """
 
+# Колонки, добавленные после первого выпуска. База уже лежит у пользователя
+# с готовыми книгами, пересоздавать её нельзя.
+ADDED_COLUMNS = {"destination": "TEXT"}
+
 
 class JobStore:
     def __init__(self, path: Path) -> None:
@@ -107,6 +113,15 @@ class JobStore:
         with self._connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript(SCHEMA)
+            self._migrate(db)
+
+    @staticmethod
+    def _migrate(db: sqlite3.Connection) -> None:
+        """Досыпает колонки, которых нет в уже существующей базе."""
+        present = {row["name"] for row in db.execute("PRAGMA table_info(jobs)")}
+        for column, kind in ADDED_COLUMNS.items():
+            if column not in present:
+                db.execute(f"ALTER TABLE jobs ADD COLUMN {column} {kind}")
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
@@ -144,6 +159,7 @@ class JobStore:
             state=State(row["state"]),
             voice=row["voice"],
             selection=row["selection"],
+            destination=row["destination"],
             audio_format=row["audio_format"],
             stage=row["stage"],
             done=row["done"],
@@ -244,9 +260,17 @@ class JobStore:
             row = db.execute("SELECT review FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return json.loads(row["review"]) if row and row["review"] else None
 
-    def set_options(self, job_id: str, voice: str, selection: str, audio_format: str) -> None:
+    def set_options(
+        self,
+        job_id: str,
+        voice: str,
+        selection: str,
+        audio_format: str,
+        destination: str | None = None,
+    ) -> None:
         with self._connect() as db:
             db.execute(
-                "UPDATE jobs SET voice = ?, selection = ?, audio_format = ? WHERE id = ?",
-                (voice, selection, audio_format, job_id),
+                "UPDATE jobs SET voice = ?, selection = ?, audio_format = ?, "
+                "destination = ? WHERE id = ?",
+                (voice, selection, audio_format, destination, job_id),
             )

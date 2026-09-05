@@ -224,10 +224,11 @@ class Runner:
                 built, document, out_dir / f"{name}.m4b", cover=cover if cover.exists() else None
             )
 
-        if self.copy_to and result.is_file():
-            # Папка в iCloud Drive: файл сам приезжает в Файлы на iPhone.
-            self.copy_to.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(result, self.copy_to / result.name)
+        # Папка, выбранная для этой книги, важнее папки запуска сервера.
+        folder = Path(job.destination) if job.destination else self.copy_to
+        if folder and result.is_file():
+            folder.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(result, folder / result.name)
 
         self.store.finish(job.id, result)
 

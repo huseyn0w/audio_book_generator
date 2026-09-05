@@ -82,6 +82,13 @@
           <option value="mp3">mp3, папка по главам</option>
         </select>
       </div>
+      <div style="flex:1.6;min-width:220px">
+        <label for="destination">Куда сохранить</label>
+        <select id="destination"></select>
+        <input id="destination-custom" type="text" hidden
+               placeholder="/Users/…/Аудиокниги" aria-label="Свой путь к папке">
+        <span id="destination-hint" class="hint"></span>
+      </div>
       <button id="synth">Озвучить</button>
       <button id="back" class="secondary">Другая книга</button>
     </div>

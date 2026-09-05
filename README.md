@@ -11,8 +11,9 @@ with chapters and cover art. The finished file lands in iCloud Drive, where
 it shows up in Files on the iPhone by itself.
 
 The review screen tells you how long the audio will be, how long the
-synthesis will take, and warns you if the text is not in the language you
-picked. The done screen shows what the cleaning removed.
+synthesis will take, lets you pick the folder the finished book goes to,
+and warns you if the text is not in the language you picked. The done
+screen shows what the cleaning removed.
 
 ## Install
 

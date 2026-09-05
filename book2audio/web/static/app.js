@@ -118,6 +118,58 @@ function wireDropzone() {
   });
 }
 
+// --- папка сохранения ---
+
+const CUSTOM = "__custom__";
+
+// Полный путь к папке в iCloud занимает две строки и всё равно обрезается.
+// Показываем короткий вид, полный остаётся в подсказке браузера.
+function shortPath(path) {
+  const icloud = "/Library/Mobile Documents/com~apple~CloudDocs";
+  const home = path.match(/^\/Users\/[^/]+/);
+  let shown = path;
+  if (home) shown = path.slice(home[0].length);
+  if (shown.startsWith(icloud)) return "iCloud Drive" + shown.slice(icloud.length);
+  return home ? "~" + shown : path;
+}
+
+async function loadDestinations() {
+  const select = $("destination");
+  if (select.options.length) return;
+  const response = await fetch("/api/settings");
+  if (!response.ok) return;
+  const { destination, suggestions } = await response.json();
+
+  const options = [{ label: "Как задано при запуске", path: "" }, ...suggestions];
+  for (const item of options) {
+    const option = document.createElement("option");
+    option.value = item.path;
+    option.textContent = item.label;
+    select.append(option);
+  }
+  const other = document.createElement("option");
+  other.value = CUSTOM;
+  other.textContent = "Другая папка…";
+  select.append(other);
+
+  const hint = $("destination-hint");
+  hint.textContent = destination
+    ? `по умолчанию ${shortPath(destination)}`
+    : "по умолчанию копия никуда не кладётся";
+  hint.title = destination || "";
+
+  select.addEventListener("change", () => {
+    const custom = select.value === CUSTOM;
+    $("destination-custom").hidden = !custom;
+    if (custom) $("destination-custom").focus();
+  });
+}
+
+function chosenDestination() {
+  const select = $("destination");
+  return select.value === CUSTOM ? $("destination-custom").value.trim() : select.value;
+}
+
 // --- предпросмотр ---
 
 // «0.3 мин» читается хуже, чем «минуты», а «95 мин» хуже, чем «1 ч 35 мин».
@@ -129,6 +181,7 @@ function synthTime(minutes) {
 }
 
 async function openReview() {
+  loadDestinations();
   const response = await fetch(`/api/jobs/${jobId}/review`);
   if (!response.ok) return;
   const data = await response.json();
@@ -201,7 +254,11 @@ async function startSynthesis() {
   await fetch(`/api/jobs/${jobId}/synthesize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ format: $("format").value, voice: $("voice").value }),
+    body: JSON.stringify({
+      format: $("format").value,
+      voice: $("voice").value,
+      destination: chosenDestination(),
+    }),
   });
   $("synth").disabled = false;
   startedAt = Date.now();
@@ -326,7 +383,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const response = await fetch(`/api/jobs/${jobId}/synthesize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ format: $("format").value, voice: $("voice").value }),
+      body: JSON.stringify({
+        format: $("format").value,
+        voice: $("voice").value,
+        destination: chosenDestination(),
+      }),
     });
     if (!response.ok) {
       // Экран ошибки свой, блок ошибки экрана загрузки отсюда не виден.

@@ -18,6 +18,7 @@ from book2audio.script_check import language_warning
 from book2audio.tts.base import DEFAULTS
 from book2audio.tts.cache import SynthCache
 from book2audio.web.jobs import JobStore, State
+from book2audio.web.paths import BadDestination, resolve_destination, suggestions
 from book2audio.web.runner import Runner, build_engine
 
 STATIC = Path(__file__).parent / "static"
@@ -116,7 +117,10 @@ def create_app(
     @app.get("/api/settings")
     def settings() -> dict:
         """Куда уезжает готовая книга. Интерфейс показывает настоящий путь."""
-        return {"destination": str(copy_to) if copy_to else None}
+        return {
+            "destination": str(copy_to) if copy_to else None,
+            "suggestions": suggestions(),
+        }
 
     @app.get("/api/voices")
     def voices(language: str = "ru") -> dict:
@@ -257,11 +261,17 @@ def create_app(
             check_space(root / "work", chars)
         except NotEnoughSpace as exc:
             raise HTTPException(status_code=507, detail=str(exc)) from exc
+        try:
+            chosen = resolve_destination(payload.get("destination"))
+        except BadDestination as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         store.set_options(
             job_id,
             voice=payload.get("voice") or "",
             selection=job.selection or "",
             audio_format=payload.get("format", "m4b"),
+            destination=str(chosen) if chosen else None,
         )
         runner.enqueue(job_id)
         return {"ok": True}
