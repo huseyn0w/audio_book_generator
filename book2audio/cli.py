@@ -8,7 +8,7 @@ import typer
 
 from book2audio.extract.base import NoTextLayer
 from book2audio.models import Selection, parse_page_spec
-from book2audio.pipeline import ICLOUD_AUDIOBOOKS, Progress, convert
+from book2audio.pipeline import COPY_TO_ENV, Progress, convert, destination
 from book2audio.preflight import INSTALL, MissingTool, check_tools, missing_tools
 from book2audio.tts.base import TTSEngine, pick_default
 from book2audio.tts.fake import FakeEngine
@@ -92,8 +92,20 @@ def convert_book(
     ] = None,
     audio_format: Annotated[str, typer.Option("--format", help="m4b или mp3")] = "m4b",
     icloud: Annotated[bool, typer.Option(help="Копировать результат в папку iCloud Drive")] = True,
+    copy_to: Annotated[
+        str | None,
+        typer.Option(
+            "--copy-to",
+            help="Папка для готовой книги, например ~/Desktop/Аудиокниги. Важнее чем --icloud",
+        ),
+    ] = None,
 ) -> None:
     """Превращает книгу в аудио."""
+    if copy_to is not None and not copy_to.strip():
+        raise typer.BadParameter("--copy-to не может быть пустым")
+    chosen_folder = Path(copy_to) if copy_to else None
+    target_folder = destination(chosen_folder) if (copy_to or icloud) else None
+
     try:
         check_tools(lang)
     except MissingTool as exc:
@@ -132,7 +144,7 @@ def convert_book(
             on_progress=show,
             clean=clean,
             audio_format=audio_format,
-            copy_to=ICLOUD_AUDIOBOOKS if icloud else None,
+            copy_to=target_folder,
         )
     except NoTextLayer as exc:
         typer.echo(f"Не получится: {exc}")
@@ -142,8 +154,8 @@ def convert_book(
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"готово за {(time.monotonic() - started) / 60:.1f} мин: {target}")
-    if icloud:
-        typer.echo(f"копия в iCloud: {ICLOUD_AUDIOBOOKS / target.name}")
+    if target_folder:
+        typer.echo(f"копия: {target_folder / target.name}")
 
 
 def chapters_of(
@@ -165,9 +177,28 @@ def serve(
     host: Annotated[str, typer.Option(help="Адрес. По умолчанию только localhost")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Порт")] = 8000,
     reload: Annotated[bool, typer.Option(help="Перезапуск при правке кода")] = False,
+    copy_to: Annotated[
+        str | None,
+        typer.Option(
+            "--copy-to",
+            help="Папка для готовых книг, например ~/Desktop/Аудиокниги. "
+            "По умолчанию папка Audiobooks в iCloud Drive",
+        ),
+    ] = None,
 ) -> None:
     """Поднимает веб-интерфейс."""
+    import os
+
     import uvicorn
+
+    # uvicorn с --reload создаёт приложение сам по строке импорта, поэтому
+    # путь едет через окружение, а не аргументом.
+    if copy_to is not None:
+        if not copy_to.strip():
+            raise typer.BadParameter("--copy-to не может быть пустым")
+        os.environ[COPY_TO_ENV] = str(Path(copy_to).expanduser())
+    folder = destination(Path(copy_to) if copy_to else None)
+    typer.echo(f"готовые книги: {folder}" if folder else "копирование выключено")
 
     # Веб не знает языка книги заранее, поэтому спрашиваем обо всём сразу.
     # Это предупреждение, а не отказ: русская книга без espeak-ng озвучится.

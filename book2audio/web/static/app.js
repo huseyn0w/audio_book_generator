@@ -264,6 +264,19 @@ function render(job) {
   }
 }
 
+async function showDestination() {
+  const box = $("icloud-path");
+  box.textContent = "";
+  try {
+    const response = await fetch("/api/settings");
+    if (!response.ok) return;
+    const { destination } = await response.json();
+    box.textContent = destination ? `Копия лежит в ${destination}` : "Копия никуда не делалась";
+  } catch {
+    // Путь это справка. Книга уже готова, молчим.
+  }
+}
+
 async function showReport(id) {
   const box = $("done-report");
   box.textContent = "";
@@ -283,8 +296,7 @@ async function showReport(id) {
 function finish(job) {
   $("done-title").textContent = job.title || "";
   $("player").src = `/api/jobs/${jobId}/download`;
-  $("icloud-path").textContent =
-    "Копия в iCloud Drive → Audiobooks. Появится в Файлах на iPhone.";
+  showDestination();
   showReport(jobId);
   show("done");
 }

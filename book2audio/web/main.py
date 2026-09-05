@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from book2audio.models import parse_page_spec
-from book2audio.pipeline import EXTRACTORS, ICLOUD_AUDIOBOOKS
+from book2audio.pipeline import EXTRACTORS, ICLOUD_AUDIOBOOKS, destination
 from book2audio.preflight import INSTALL, NotEnoughSpace, check_space, missing_tools
 from book2audio.script_check import language_warning
 from book2audio.tts.base import DEFAULTS
@@ -71,6 +71,10 @@ def create_app(
     engine_name: str = "",
     copy_to: Path | None = ICLOUD_AUDIOBOOKS,
 ) -> FastAPI:
+    # Умолчание аргумента годится для тестов, но запуск через uvicorn идёт
+    # по строке импорта, и путь приезжает из окружения.
+    if copy_to is ICLOUD_AUDIOBOOKS:
+        copy_to = destination(None)
     root = Path(root or Path.home() / ".book2audio")
     uploads = root / "uploads"
     uploads.mkdir(parents=True, exist_ok=True)
@@ -108,6 +112,11 @@ def create_app(
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         return (STATIC / "index.html").read_text(encoding="utf-8")
+
+    @app.get("/api/settings")
+    def settings() -> dict:
+        """Куда уезжает готовая книга. Интерфейс показывает настоящий путь."""
+        return {"destination": str(copy_to) if copy_to else None}
 
     @app.get("/api/voices")
     def voices(language: str = "ru") -> dict:

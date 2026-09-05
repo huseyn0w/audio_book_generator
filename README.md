@@ -30,6 +30,9 @@ is needed.
 
 ```bash
 uv run book2audio serve
+
+# put finished books somewhere else
+uv run book2audio serve --copy-to ~/Desktop/Audiobooks
 ```
 
 Open http://127.0.0.1:8000 and drop a book on the page.

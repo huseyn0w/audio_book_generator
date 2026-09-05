@@ -42,6 +42,26 @@ EXTRACTORS: dict[str, Callable[..., Extractor]] = {
 # Куда класть готовую книгу, чтобы она сама приехала в Файлы на iPhone.
 ICLOUD_AUDIOBOOKS = Path.home() / "Library/Mobile Documents/com~apple~CloudDocs/Audiobooks"
 
+# Переменная окружения для веб-процесса: uvicorn с --reload создаёт приложение
+# сам по строке импорта, аргумент туда не передать.
+COPY_TO_ENV = "BOOK2AUDIO_COPY_TO"
+
+
+def destination(explicit: Path | None) -> Path | None:
+    """Куда копировать готовую книгу.
+
+    Явный путь важнее окружения, окружение важнее умолчания. Пустая строка
+    в окружении значит «не копировать никуда».
+    """
+    if explicit is not None:
+        return Path(explicit).expanduser()
+    from os import environ
+
+    if COPY_TO_ENV in environ:
+        value = environ[COPY_TO_ENV].strip()
+        return Path(value).expanduser() if value else None
+    return ICLOUD_AUDIOBOOKS
+
 
 def pick_extractor(path: Path, clean: bool, language: str = "ru") -> Extractor:
     factory = EXTRACTORS.get(path.suffix.lower())
