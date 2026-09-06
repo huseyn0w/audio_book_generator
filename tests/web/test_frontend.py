@@ -141,3 +141,26 @@ def test_progress_heading_does_not_duplicate_the_stage_line():
 def test_progress_screen_shows_the_book_title():
     assert 'id="progress-title"' in HTML
     assert "progress-title" in JS
+
+
+# --- the waiting state ---
+
+
+def test_waiting_state_has_a_spinner():
+    """Extraction reports no numbers, and a bar stuck at zero reads as a hang."""
+    assert 'id="spinner"' in HTML
+
+
+def test_the_measured_block_starts_hidden():
+    """The bar appears only once there is something to measure."""
+    assert re.search(r'<div id="measured"[^>]*\shidden', HTML)
+
+
+def test_script_switches_between_the_spinner_and_the_bar():
+    assert 'measured").hidden' in JS
+    assert 'spinner").hidden' in JS
+
+
+def test_hidden_survives_a_display_rule():
+    """A class with display: flex would otherwise beat the browser's [hidden]."""
+    assert "[hidden]" in CSS

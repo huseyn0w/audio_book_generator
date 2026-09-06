@@ -266,6 +266,37 @@ button.danger {
 
 /* --- progress --- */
 
+/* A class with display: flex would otherwise beat the browser's own [hidden]. */
+[hidden] { display: none !important; }
+
+/* Extraction and assembly have nothing to count, so the spinner stands in for a
+   bar there: it says "working" without promising a position. */
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* A 0.01ms spin is a blur, not a still. The ring stops, and the stage line with
+   its aria-live announcement carries the waiting instead. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
 .bar {
   height: 8px;
   background: var(--surface-2);

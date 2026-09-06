@@ -104,11 +104,16 @@
     <h2 id="h-progress" data-i18n="progress.title"></h2>
     <p id="progress-title" class="mono muted"></p>
     <div class="card">
-      <div id="stage" role="status" aria-live="polite" data-i18n="progress.preparing"></div>
-      <div class="bar"><div id="bar-fill"></div></div>
-      <div class="stat">
-        <span id="counter" class="mono">0 / 0</span>
-        <span id="eta"></span>
+      <div class="waiting">
+        <span id="spinner" class="spinner" aria-hidden="true"></span>
+        <span id="stage" role="status" aria-live="polite" data-i18n="progress.preparing"></span>
+      </div>
+      <div id="measured" hidden>
+        <div class="bar"><div id="bar-fill"></div></div>
+        <div class="stat">
+          <span id="counter" class="mono">0 / 0</span>
+          <span id="eta"></span>
+        </div>
       </div>
     </div>
     <button id="cancel" class="danger" data-i18n="progress.cancel"></button>

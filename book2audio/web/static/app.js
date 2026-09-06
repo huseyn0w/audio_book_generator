@@ -89,6 +89,8 @@ async function upload(file) {
   show("progress");
   $("stage").textContent = t("progress.extract");
   $("counter").textContent = "";
+  $("eta").textContent = "";
+  measuring(false);
   watch();
 }
 
@@ -329,6 +331,11 @@ function render(job) {
   // the same word in two places makes no sense.
   $("progress-title").textContent = job.title || "";
   $("stage").textContent = t(STAGE_KEYS[job.stage] || "progress.preparing");
+
+  // Extraction and assembly report no numbers. A bar sitting at zero through all
+  // of extraction reads as a hang, so until there is something to measure the
+  // spinner carries the waiting on its own.
+  measuring(job.total > 0);
   if (job.total > 0) {
     const share = job.done / job.total;
     $("bar-fill").style.width = (share * 100).toFixed(1) + "%";
@@ -339,6 +346,11 @@ function render(job) {
       $("eta").textContent = t("progress.eta", { count: Math.ceil(left / 60) });
     }
   }
+}
+
+function measuring(on) {
+  $("measured").hidden = !on;
+  $("spinner").hidden = on;
 }
 
 async function showDestination() {

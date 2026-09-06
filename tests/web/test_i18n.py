@@ -117,3 +117,8 @@ def test_language_name_and_letter_form_are_separate():
     js = read("app.js")
     assert 'expected: t(expected === "ru" ? "review.languageRu"' in js
     assert 'found: t(found === "ru" ? "review.lettersRu"' in js
+
+
+def test_the_start_button_names_the_action():
+    """ "Read it aloud" never said that pressing it starts the conversion."""
+    assert "start" in dictionaries()["en"]["review.synthesize"].lower()
