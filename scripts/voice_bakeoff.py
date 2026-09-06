@@ -1,9 +1,9 @@
-"""Слепое сравнение голосов.
+"""A blind comparison of voices.
 
-Гоняет один и тот же абзац через все голоса, пишет версии x1 и x2
-под обезличенными именами. Расшифровка лежит в key/mapping.json.
+Runs the same paragraph through every voice and writes an x1 and an x2 version
+under anonymous names. The key lives in key/mapping.json.
 
-Запуск:
+Usage:
     uv run python scripts/voice_bakeoff.py --out ./bakeoff
 """
 
@@ -32,26 +32,26 @@ EN_TEXT = (
 
 TEXT_BY_LANG = {"ru": RU_TEXT, "en": EN_TEXT}
 
-# Родные русские голоса идут первыми, дикторы СНГ читают с акцентом.
+# The native Russian voices come first, the CIS narrators read with an accent.
 ENGINE_SETS: dict[str, list[str]] = {
     "native": ["silero:v5_5_ru", "kokoro"],
     "all": ["silero:v5_5_ru", "silero:v5_cis_base", "kokoro"],
-    # Только русские: пересматривать выбор обычно нужно для одного языка,
-    # и гонять при этом 11 английских голосов незачем.
+    # Russian only: you usually revisit the choice for one language, and there is
+    # no reason to run 11 English voices while doing it.
     "ru-native": ["silero:v5_5_ru"],
     "ru-all": ["silero:v5_5_ru", "silero:v5_cis_base"],
 }
 
-# Ниже этого абзац слишком короток, чтобы судить о голосе.
+# Below this a paragraph is too short to judge a voice on.
 MIN_SAMPLE_CHARS = 200
 
-# Предел на образец. Замер: v5_5_ru принимает ~1097 символов, v5_cis_base
-# ~795. Берём с запасом ниже меньшего, чтобы сравнение шло на всех голосах.
+# The sample limit. Measured: v5_5_ru takes ~1097 characters, v5_cis_base ~795.
+# We stay below the smaller one so the comparison runs on every voice.
 SAMPLE_LIMIT = 600
 
 
 def build_engines(names: list[str]) -> list[tuple[TTSEngine, str]]:
-    """Собирает движки по именам. Веса не грузит, конструкторы ленивые."""
+    """Builds the engines by name. It loads no weights, the constructors are lazy."""
     built: list[tuple[TTSEngine, str]] = []
     for name in names:
         if name.startswith("silero:"):
@@ -59,7 +59,7 @@ def build_engines(names: list[str]) -> list[tuple[TTSEngine, str]]:
         elif name == "kokoro":
             built.append((KokoroEngine(), "en"))
         else:
-            raise ValueError(f"неизвестный движок: {name}")
+            raise ValueError(f"unknown engine: {name}")
     return built
 
 
@@ -100,13 +100,13 @@ GENDER_MARK = {"female": "\u2640", "male": "\u2642", "unknown": "\u00b7"}
 
 
 def write_player_page(mapping: dict[str, str], genders: dict[str, str], out_dir: Path) -> None:
-    """Локальная страница для прослушивания. Имя голоса скрыто до клика."""
+    """A local page for listening. The voice name stays hidden until you click."""
     rows: list[str] = []
     last_lang = None
     for label, voice in mapping.items():
         lang = label.split("_")[0]
         if lang != last_lang:
-            rows.append(f"<h2>{'русский' if lang == 'ru' else 'английский'}</h2>")
+            rows.append(f"<h2>{'Russian' if lang == 'ru' else 'English'}</h2>")
             last_lang = lang
         mark = GENDER_MARK[genders.get(label, "unknown")]
         rows.append(
@@ -115,15 +115,16 @@ def write_player_page(mapping: dict[str, str], genders: dict[str, str], out_dir:
             f'<audio controls preload="none" src="{label}.wav"></audio></span>'
             f'<span><span class="speed">x2</span>'
             f'<audio controls preload="none" src="{label}_x2.wav"></audio></span>'
-            f'<button class="voice" data-voice="{voice}">показать</button></div>'
+            f'<button class="voice" data-voice="{voice}">show</button></div>'
         )
     html = (
-        "<!doctype html><meta charset=utf-8><title>Сравнение голосов</title>"
+        "<!doctype html><meta charset=utf-8><title>Voice comparison</title>"
         f"<style>{PAGE_STYLE}</style>"
-        "<h1>Слепое сравнение голосов</h1>"
-        "<p class=hint>Слушай, отмечай понравившиеся. Имя голоса откроется по кнопке. "
-        "Русские родные голоса идут первыми, дальше дикторы СНГ с акцентом.</p>"
-        '<p><button id="all">показать все имена</button></p>'
+        "<h1>A blind comparison of voices</h1>"
+        "<p class=hint>Listen and mark the ones you like. The button reveals the voice "
+        "name. The native Russian voices come first, then the CIS narrators with an "
+        "accent.</p>"
+        '<p><button id="all">show every name</button></p>'
         + "".join(rows)
         + f"<script>{PAGE_SCRIPT}</script>"
     )
@@ -131,10 +132,10 @@ def write_player_page(mapping: dict[str, str], genders: dict[str, str], out_dir:
 
 
 def sample_text(path: Path, language: str) -> str:
-    """Первый достаточно длинный абзац книги.
+    """The first paragraph of the book that is long enough.
 
-    Голос судят на своём материале: чужой абзац может лечь удачно, а на
-    твоей книге тот же диктор будет раздражать через десять минут.
+    A voice is judged on your own material: somebody else's paragraph may land
+    well, while on your book the same narrator grates after ten minutes.
     """
     from book2audio.chunker import chunk_document
     from book2audio.models import Chapter, Document
@@ -145,19 +146,19 @@ def sample_text(path: Path, language: str) -> str:
         for block in chapter.blocks:
             if len(block.text) < MIN_SAMPLE_CHARS:
                 continue
-            # Целый абзац Silero не примет: у модели есть предел длины.
-            # Режем тем же чанкером, что и в бою, и берём первый кусок.
-            one = Document("образец", None, language, [Chapter("", [block])])
+            # Silero will not take a whole paragraph: the model has a length limit.
+            # We cut with the same chunker as in production and take the first piece.
+            one = Document("sample", None, language, [Chapter("", [block])])
             chunks = chunk_document(one, language, limit=SAMPLE_LIMIT)
             if chunks:
                 return chunks[0].text
-    raise ValueError(f"в книге {path.name} не нашлось абзаца для образца")
+    raise ValueError(f"no paragraph long enough for a sample in {path.name}")
 
 
 def run_bakeoff(
     engines: list[tuple[TTSEngine, str]], out_dir: Path, text: str | None = None
 ) -> dict[str, str]:
-    """Синтезирует абзац всеми голосами. Возвращает расшифровку имён."""
+    """Synthesizes the paragraph in every voice. Returns the name key."""
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "key").mkdir(exist_ok=True)
 
@@ -174,7 +175,7 @@ def run_bakeoff(
             change_speed(x1, out_dir / f"{label}_x2.wav", 2.0)
             mapping[label] = f"{engine.name}/{voice.id}"
             genders[label] = voice.gender
-            print(f"{label}  готово")
+            print(f"{label}  done")
 
     (out_dir / "key" / "mapping.json").write_text(
         json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -184,7 +185,7 @@ def run_bakeoff(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Слепое сравнение голосов")
+    parser = argparse.ArgumentParser(description="A blind comparison of voices")
     parser.add_argument("--out", type=Path, default=Path("./bakeoff"))
     parser.add_argument(
         "--set",
@@ -192,25 +193,25 @@ def main() -> None:
         choices=sorted(ENGINE_SETS),
         default="all",
         help=(
-            "native это 5 родных русских плюс 11 английских, all добавляет 29 голосов "
-            "СНГ, ru-native и ru-all это то же самое без английских"
+            "native is the 5 native Russian plus 11 English, all adds 29 CIS voices, "
+            "ru-native and ru-all are the same without the English ones"
         ),
     )
     parser.add_argument(
         "--text-from",
         type=Path,
         default=None,
-        help="Книга, из которой взять абзац для сравнения. По умолчанию встроенный текст",
+        help="The book to take the comparison paragraph from. Defaults to the built-in text",
     )
-    parser.add_argument("--lang", default="ru", help="Язык книги из --text-from")
+    parser.add_argument("--lang", default="ru", help="The language of the book in --text-from")
     args = parser.parse_args()
 
     text = sample_text(args.text_from, args.lang) if args.text_from else None
     if text:
-        print(f"абзац из книги, {len(text)} символов:\n{text[:200]}...\n")
+        print(f"paragraph from the book, {len(text)} characters:\n{text[:200]}...\n")
 
     mapping = run_bakeoff(build_engines(ENGINE_SETS[args.engine_set]), args.out, text)
-    print(f"\n{len(mapping)} голосов в {args.out}")
+    print(f"\n{len(mapping)} voices in {args.out}")
     print(f"Открой {args.out / 'index.html'} в браузере и слушай.")
     print("Расшифровка также лежит в key/mapping.json")
 

@@ -1,7 +1,7 @@
-"""Интерфейс на двух языках.
+"""The interface in two languages.
 
-По умолчанию английский. Русские строки не должны приезжать с сервера:
-подписи выбирает клиент, сервер отдаёт данные и устойчивые ключи.
+English by default. Russian strings must not arrive from the server: the client
+picks the labels, the server hands back data and stable keys.
 """
 
 import json
@@ -18,14 +18,14 @@ def read(name: str) -> str:
 
 
 def dictionaries() -> dict:
-    """Достаёт словари из i18n.js без запуска браузера."""
+    """Pulls the dictionaries out of i18n.js without starting a browser."""
     source = read("i18n.js")
     match = re.search(r"const STRINGS = (\{.*?\n\});", source, re.DOTALL)
-    assert match, "не нашёл STRINGS в i18n.js"
+    assert match, "STRINGS not found in i18n.js"
     return json.loads(match.group(1))
 
 
-# --- словари ---
+# --- the dictionaries ---
 
 
 def test_both_languages_exist():
@@ -40,29 +40,29 @@ def test_no_key_is_missing_in_either_language():
 def test_no_value_is_empty():
     for lang, table in dictionaries().items():
         for key, value in table.items():
-            assert value.strip(), f"{lang}.{key} пустой"
+            assert value.strip(), f"{lang}.{key} is empty"
 
 
 def test_english_has_no_cyrillic():
     for key, value in dictionaries()["en"].items():
-        assert not re.search(r"[А-Яа-яЁё]", value), f"кириллица в en.{key}: {value}"
+        assert not re.search(r"[А-Яа-яЁё]", value), f"cyrillic in en.{key}: {value}"
 
 
 def test_russian_is_actually_russian():
-    """Половина словаря латиницей значила бы незаконченный перевод."""
+    """Half the dictionary in Latin would mean an unfinished translation."""
     table = dictionaries()["ru"]
     cyrillic = sum(1 for v in table.values() if re.search(r"[А-Яа-яЁё]", v))
     assert cyrillic > len(table) * 0.7
 
 
-# --- разметка ---
+# --- the markup ---
 
 
 def test_markup_has_no_hardcoded_russian():
     html = read("index.html")
     body = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
     leftovers = re.findall(r"[А-Яа-яЁё][А-Яа-яЁё ,.:—«»()!?-]{3,}", body)
-    assert not leftovers, f"русский текст в разметке: {leftovers[:5]}"
+    assert not leftovers, f"russian text in the markup: {leftovers[:5]}"
 
 
 def test_page_starts_in_english():
@@ -82,17 +82,17 @@ def test_header_has_a_language_switch():
     assert "<header" in html.split('id="ui-language"')[0].rsplit("</header>", 1)[0]
 
 
-# --- скрипт ---
+# --- the script ---
 
 
 def test_script_has_no_hardcoded_russian():
     js = read("app.js")
     code = re.sub(r"//.*", "", js)
-    # Все три вида кавычек: русский текст пролезал через шаблонные строки.
+    # All three kinds of quotes: Russian text slipped through template strings.
     leftovers = re.findall(r'"[^"\n]*[А-Яа-яЁё][^"\n]*"', code)
     leftovers += re.findall(r"'[^'\n]*[А-Яа-яЁё][^'\n]*'", code)
     leftovers += re.findall(r"`[^`]*[А-Яа-яЁё][^`]*`", code)
-    assert not leftovers, f"русские строки в app.js: {leftovers[:5]}"
+    assert not leftovers, f"russian strings in app.js: {leftovers[:5]}"
 
 
 def test_choice_is_remembered():
@@ -110,7 +110,7 @@ def test_screen_titles_are_translated(key):
 
 
 def test_language_name_and_letter_form_are_separate():
-    """«88% букв английский» это калька. Для букв нужна своя форма."""
+    """«88% букв английский» is a calque. Letters need a form of their own."""
     ru = dictionaries()["ru"]
     assert ru["review.languageEn"] == "английский"
     assert ru["review.lettersEn"] == "английские"

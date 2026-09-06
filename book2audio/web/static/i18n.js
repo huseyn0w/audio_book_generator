@@ -9,6 +9,7 @@ const STRINGS = {
 "en": {
   "app.tagline": "pdf · epub · fb2",
   "app.languageLabel": "Interface language",
+  "app.madeBy": "Made by",
 
   "upload.title": "Upload a book",
   "upload.drop": "Drop a file here",
@@ -98,6 +99,7 @@ const STRINGS = {
 "ru": {
   "app.tagline": "pdf · epub · fb2",
   "app.languageLabel": "Язык интерфейса",
+  "app.madeBy": "Сделал",
 
   "upload.title": "Загрузить книгу",
   "upload.drop": "Перетащите файл сюда",

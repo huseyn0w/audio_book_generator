@@ -28,14 +28,14 @@ def test_epub_produces_chapters_with_text():
 
 
 def test_epub_takes_chapters_from_the_toc_not_from_headings():
-    """В книге нет ни одного h1-h3, главы существуют только в оглавлении."""
+    """The book has no h1-h3 at all, the chapters exist only in the contents."""
     doc = EpubExtractor().extract(BOOK)
     titles = [c.title for c in doc.chapters]
     assert any("Предисловие" in t or "благодарность" in t.lower() for t in titles)
 
 
 def test_epub_splits_at_anchors_inside_a_file():
-    """Оглавление ссылается на ch1-5.xhtml#id4, то есть на середину файла."""
+    """The contents point at ch1-5.xhtml#id4, that is the middle of a file."""
     doc = EpubExtractor().extract(BOOK)
     pairs = [(c.title, c.char_count()) for c in doc.chapters]
     assert len(pairs) >= 3
@@ -73,7 +73,7 @@ def test_epub_can_skip_normalization():
 def test_epub_rejects_a_file_that_is_not_epub(tmp_path):
     fake = tmp_path / "x.epub"
     fake.write_text("не архив", encoding="utf-8")
-    with pytest.raises(ValueError, match="не похож на EPUB"):
+    with pytest.raises(ValueError, match="does not look like EPUB"):
         EpubExtractor().extract(fake)
 
 
@@ -96,11 +96,11 @@ def test_flatten_toc_walks_nested_entries_in_order():
     ]
 
 
-# --- концевые сноски ---
+# --- endnotes ---
 
 
 def test_endnote_documents_are_skipped():
-    """Конвертеры fb2 в epub кладут сноски отдельными файлами вне оглавления.
+    """fb2 to epub converters put endnotes in separate files outside the contents.
 
     У Кристенсена это 202 файла и 162 тысячи символов, то есть три часа
     обрывочного текста в конце тринадцатичасовой книги.
@@ -121,7 +121,7 @@ def test_endnote_first_paragraph_must_be_only_a_number():
 
 
 def test_real_book_drops_endnotes_and_matches_the_fb2_edition():
-    """FB2 и EPUB это одна книга, объёмы обязаны сойтись."""
+    """FB2 and EPUB are the same book, so the sizes have to agree."""
     doc = EpubExtractor().extract(BOOK)
     text = " ".join(b.text for c in doc.chapters for b in c.blocks)
     assert "Там же" not in text

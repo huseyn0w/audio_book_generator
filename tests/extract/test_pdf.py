@@ -18,7 +18,7 @@ NO_TOC_PDF = FIXTURES / "no_toc_ru.pdf"
 SCANNED_PDF = FIXTURES / "scanned_ru.pdf"
 
 
-# --- чтение страниц ---
+# --- reading the pages ---
 
 
 def test_read_pages_returns_one_page_per_pdf_page():
@@ -34,7 +34,7 @@ def test_read_pages_keeps_font_size_and_bbox():
 
 
 def test_read_pages_collapses_broken_spacing():
-    """У части PDF текст извлекается с рваными пробелами между словами."""
+    """In some PDFs the text comes out with ragged spaces between the words."""
     blocks = [b for p in read_pages(NO_TOC_PDF) for b in p.blocks]
     assert not any("  " in b.text for b in blocks)
 
@@ -45,11 +45,11 @@ def test_read_pages_honours_page_range():
 
 
 def test_read_pages_rejects_range_past_the_end():
-    with pytest.raises(ValueError, match="в документе"):
+    with pytest.raises(ValueError, match="past the end"):
         read_pages(TOC_PDF, Selection(pages=(50, 60)))
 
 
-# --- текстовый слой ---
+# --- the text layer ---
 
 
 def test_extract_raises_on_scanned_pdf():
@@ -57,7 +57,7 @@ def test_extract_raises_on_scanned_pdf():
         PdfExtractor().extract(SCANNED_PDF)
 
 
-# --- главы ---
+# --- chapters ---
 
 
 def test_extract_uses_pdf_bookmarks_when_present():
@@ -101,7 +101,7 @@ def test_split_into_chapters_treats_large_font_as_heading():
 
 
 def test_split_into_chapters_ignores_long_lines_in_large_font():
-    """Крупный шрифт на длинном тексте это не заголовок, а врезка."""
+    """A large font on long text is a pull quote, not a heading."""
 
     def blk(text, size):
         return RawBlock(text=text, font_size=size, bbox=(0, 0, 100, 10), page=1)
@@ -112,7 +112,7 @@ def test_split_into_chapters_ignores_long_lines_in_large_font():
     assert chapters[0].blocks[0].kind == "paragraph"
 
 
-# --- протокол ---
+# --- the protocol ---
 
 
 def test_pdf_extractor_produces_blocks_with_page_numbers():
@@ -122,7 +122,7 @@ def test_pdf_extractor_produces_blocks_with_page_numbers():
 
 
 def test_read_pages_keeps_space_at_line_breaks():
-    """Спаны внутри строки склеиваются вплотную, строки между собой через пробел."""
+    """Spans inside a line join flush, and lines join to each other with a space."""
     blocks = [b for p in read_pages(TOC_PDF) for b in p.blocks]
     joined = " ".join(b.text for b in blocks)
     assert "жесткие требования" in joined
@@ -141,7 +141,7 @@ def _raw(text, page, size=13.0):
 
 
 def test_toc_split_happens_at_the_heading_block_not_the_page_edge():
-    """Подглава часто начинается посреди страницы, резать по странице нельзя."""
+    """A subchapter often starts mid-page, so cutting on the page is wrong."""
     blocks = [
         _raw("Хвост первой главы", 5),
         _raw("Ещё хвост первой главы", 5),
@@ -162,7 +162,7 @@ def test_toc_split_happens_at_the_heading_block_not_the_page_edge():
 
 
 def test_toc_split_falls_back_to_page_start_when_title_not_found():
-    """Заголовок в тексте может быть свёрстан иначе, чем в закладке."""
+    """A heading in the text may be typeset differently than in the bookmark."""
     blocks = [_raw("Текст четвёртой", 4), _raw("Текст пятой", 5)]
     toc = [[1, "Первая", 4], [1, "Совсем другое название", 5]]
     chapters = chapters_from_toc(toc, blocks, first_page=4)

@@ -1,7 +1,7 @@
-"""Кэш синтезированных чанков.
+"""The cache of synthesized chunks.
 
-Прогон книги идёт десятки минут и будет падать. Без кэша каждое падение
-стоит всего прогона заново.
+A book run takes tens of minutes and will fail. Without a cache every failure
+costs the whole run again.
 """
 
 import hashlib
@@ -10,16 +10,16 @@ from pathlib import Path
 from book2audio.audio import silence
 from book2audio.tts.base import TTSEngine
 
-# Сколько раз пробуем один чанк. Движок иногда срывается на нехватке памяти
-# или на одном кривом символе, и повтор чаще всего проходит.
+# How many times we try one chunk. The engine sometimes trips on memory pressure
+# or on one crooked character, and a retry usually gets through.
 ATTEMPTS = 3
 
-# Скорость прозы. По ней считается длина тишины вместо сорвавшегося чанка:
-# книга не должна съезжать по таймингу из-за одной дыры.
+# Prose speed. It sets the length of the silence that replaces a failed chunk:
+# the book must not drift out of time because of one hole.
 CHARS_PER_SECOND = 15.0
 
-# Сколько символов чанка попадает в отчёт. Достаточно, чтобы найти место
-# в книге, и не настолько много, чтобы отчёт стал вторым текстом книги.
+# How many chunk characters go into the report. Enough to find the place in the
+# book, and not so many that the report becomes a second copy of the text.
 REPORT_CHARS = 200
 
 
@@ -32,8 +32,8 @@ class SynthCache:
         self.failures: list[str] = []
 
     def key(self, text: str, voice: str, engine: TTSEngine) -> str:
-        """Версия движка входит в ключ: смена модели обязана инвалидировать кэш."""
-        # Нулевой байт как разделитель: поля не могут склеиться неоднозначно.
+        """The engine version is part of the key: a new model must invalidate the cache."""
+        # A zero byte as separator: the fields cannot merge ambiguously.
         material = f"{text}\x00{voice}\x00{engine.name}\x00{engine.version}"
         return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
@@ -41,14 +41,14 @@ class SynthCache:
         return self.root / f"{self.key(text, voice, engine)}.wav"
 
     def synth(self, engine: TTSEngine, text: str, voice: str) -> Path:
-        """Отдаёт wav из кэша или синтезирует и кладёт туда."""
+        """Returns a wav from the cache, or synthesizes it and puts it there."""
         target = self.path(text, voice, engine)
         if target.exists():
             self.hits += 1
             return target
 
-        # Пишем во временный файл и переименовываем: оборванный wav в кэше
-        # хуже отсутствующего, он молча попадёт в книгу.
+        # Write to a temporary file and rename: a truncated wav in the cache is
+        # worse than a missing one, it would slip into the book unnoticed.
         staging = target.with_suffix(".part")
         try:
             engine.synth(text, voice, staging)
@@ -61,28 +61,29 @@ class SynthCache:
         return target
 
     def synth_or_silence(self, engine: TTSEngine, text: str, voice: str) -> Path:
-        """Как synth, но сорвавшийся чанк не роняет книгу, а становится тишиной.
+        """Like synth, but a failed chunk turns into silence instead of killing the book.
 
-        Голос и пустоту проверяем сами, до движка: от них повтор не спасёт,
-        а тихая подмена превратила бы в тишину всю книгу. Всё остальное, чем
-        бы движок ни упал, считается сбоем этого куска. Silero, например,
-        кидает голый ValueError на куске, который не смог разобрать.
+        We check the voice and the empty text ourselves, before the engine: a retry
+        will not save those, and a quiet substitution would turn the whole book into
+        silence. Everything else, whatever the engine fails with, counts as a failure
+        of this piece. Silero, for one, throws a bare ValueError on a piece it could
+        not parse.
         """
         if voice not in {v.id for v in engine.voices()}:
-            raise ValueError(f"неизвестный голос: {voice}")
+            raise ValueError(f"unknown voice: {voice}")
         if not text.strip():
-            raise ValueError("пустой текст")
+            raise ValueError("empty text")
 
         for attempt in range(ATTEMPTS):
             try:
                 return self.synth(engine, text, voice)
-            except Exception:  # noqa: BLE001 — движок волен упасть чем угодно
+            except Exception:  # noqa: BLE001 - the engine may fail with anything
                 if attempt == ATTEMPTS - 1:
                     break
 
         self.failures.append(text)
-        # Тишина лежит вне кэша чанков: иначе после починки движка книга
-        # молча пересобралась бы с теми же дырами.
+        # The silence lives outside the chunk cache: otherwise, once the engine was
+        # fixed, the book would quietly rebuild with the same holes.
         gaps = self.root / "failed"
         gaps.mkdir(exist_ok=True)
         gap = gaps / f"{self.key(text, voice, engine)}.wav"
@@ -90,7 +91,7 @@ class SynthCache:
         return gap
 
     def report(self) -> dict:
-        """Что не синтезировалось. Пишется рядом с отчётом о чистке."""
+        """What did not synthesize. Written next to the cleaning report."""
         return {
             "failed": len(self.failures),
             "chunks": [text[:REPORT_CHARS] for text in self.failures],

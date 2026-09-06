@@ -24,7 +24,7 @@ def sample_doc():
     return Document(title="Тестовая книга", author="Автор", language="ru", chapters=[])
 
 
-# --- метаданные глав ---
+# --- chapter metadata ---
 
 
 def test_metadata_starts_with_the_ffmpeg_header():
@@ -52,7 +52,7 @@ def test_metadata_uses_milliseconds_and_consecutive_ranges():
 
 
 def test_metadata_escapes_special_characters_in_titles():
-    """Знак равенства и точка с запятой в названии ломают формат ffmetadata."""
+    """An equals sign and a semicolon in a title break the ffmetadata format."""
     meta = build_chapter_metadata(
         [ChapterAudio("Глава = раз; и два", Path("a.wav"), 1.0)], sample_doc()
     )
@@ -141,11 +141,11 @@ def test_m4b_embeds_a_cover_when_given(tmp_path):
 
 
 def test_m4b_refuses_an_empty_chapter_list(tmp_path):
-    with pytest.raises(ValueError, match="нечего собирать"):
+    with pytest.raises(ValueError, match="nothing to assemble"):
         write_m4b([], sample_doc(), tmp_path / "book.m4b")
 
 
-# --- mp3 по главам ---
+# --- mp3 per chapter ---
 
 
 def test_mp3_writes_one_numbered_file_per_chapter(tmp_path):
@@ -188,11 +188,11 @@ def test_wav_duration_helper_matches_the_file(tmp_path):
         assert w.getnframes() == 60000
 
 
-# --- имена файлов ---
+# --- file names ---
 
 
 def test_safe_filename_cuts_at_a_word_boundary():
-    """Обрыв посреди слова выглядит поломкой: «поддерживать е.m4b»."""
+    """Breaking mid-word looks like damage: «поддерживать е.m4b»."""
     from book2audio.assemble import safe_filename
 
     title = "Решение проблемы инноваций в бизнесе как создать растущий бизнес"

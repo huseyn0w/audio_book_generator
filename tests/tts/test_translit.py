@@ -1,4 +1,4 @@
-"""Латиница для русского Silero.
+"""Latin script for the Russian Silero.
 
 В таблице символов русской модели латинских букв нет: одна буква «e»
 из «E*Trade Bank» роняет синтез с KeyError. Замер на книге Кристенсена:
@@ -15,7 +15,7 @@ def has_latin(text: str) -> bool:
     return any("a" <= c.lower() <= "z" for c in text)
 
 
-# --- главное свойство: латиницы не остаётся ---
+# --- the main property: no Latin is left ---
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ def test_no_latin_survives(text):
     assert not has_latin(latin_to_cyrillic(text))
 
 
-# --- аббревиатуры читаются по буквам ---
+# --- abbreviations are read letter by letter ---
 
 
 def test_uppercase_acronym_is_spelled_out():
@@ -50,7 +50,7 @@ def test_ampersand_becomes_and():
     assert latin_to_cyrillic("AT&T") == "эй-ти энд ти"
 
 
-# --- обычные слова транслитерируются ---
+# --- ordinary words are transliterated ---
 
 
 def test_ordinary_word():
@@ -75,23 +75,23 @@ def test_digraphs_are_handled():
     ],
 )
 def test_common_names_are_recognizable(word, expected):
-    """Перевод приблизительный: английской фонетики побуквенно не будет.
+    """The transfer is approximate: letter by letter gives no English phonetics.
     Планка такая: имя должно быть узнаваемо на слух."""
     assert latin_to_cyrillic(word) == expected
 
 
 def test_silent_e_is_not_pronounced():
-    """«гугле» и «аппле» звучат нелепо, немая e на конце убирается."""
+    """«гугле» and «аппле» sound absurd, so the silent final e is dropped."""
     assert latin_to_cyrillic("Google") == "гугл"
     assert latin_to_cyrillic("Apple") == "аппл"
 
 
 def test_single_capital_letter_is_a_word_not_an_acronym():
-    """Инициал «A.» не должен превращаться в «эй-...»."""
+    """The initial "A." must not turn into «эй-...»."""
     assert latin_to_cyrillic("A.") == "эй."
 
 
-# --- что трогать нельзя ---
+# --- what must not be touched ---
 
 
 def test_cyrillic_is_untouched():

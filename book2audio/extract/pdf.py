@@ -1,8 +1,8 @@
-"""Извлечение PDF через PyMuPDF.
+"""PDF extraction through PyMuPDF.
 
-Берём get_text("dict"), а не голый текст: словарь отдаёт размер шрифта,
-начертание и координаты каждого спана. Фаза 2 без этих данных не отличит
-колонтитул от абзаца, поэтому терять их нельзя.
+We take get_text("dict") rather than bare text: the dictionary gives the font
+size, the style and the coordinates of every span. Without that data phase 2
+cannot tell a running head from a paragraph, so it must not be lost.
 """
 
 from dataclasses import replace
@@ -14,29 +14,29 @@ from book2audio.clean.pipeline import CleanReport, clean_pages
 from book2audio.clean.speech import normalize_for_speech
 from book2audio.extract.base import NoTextLayer
 from book2audio.extract.layout import RawBlock, RawPage, median_font_size
-from book2audio.models import Block, Chapter, Document, Selection
+from book2audio.models import OPENING_TITLE, UNTITLED, Block, Chapter, Document, Selection
 
-# Ниже этого числа символов на страницу считаем, что текстового слоя нет.
+# Below this many characters per page we treat the text layer as absent.
 MIN_CHARS_PER_PAGE = 100
 
-# Во сколько раз шрифт заголовка крупнее медианного.
+# How many times larger a heading font is than the median one.
 HEADING_FONT_RATIO = 1.15
 
-# Заголовок это короткая строка. Длинный текст крупным шрифтом это врезка.
+# A heading is a short line. Long text in a large font is a pull quote.
 HEADING_MAX_CHARS = 120
 
 MONOSPACED_FLAG = 8
 
 
 def _block_text(raw: dict) -> str:
-    """Склеивает спаны блока в строку.
+    """Joins a block's spans into a line.
 
-    Спаны внутри строки идут вплотную: разрыв спана это смена шрифта,
-    часто посреди слова. Строки между собой склеиваются пробелом, иначе
-    на переносе слипаются последнее и первое слово.
+    Spans inside a line sit flush: a span break is a font change, often mid-word.
+    Lines are joined to each other with a space, otherwise the last and the first
+    word stick together at the line break.
 
-    Часть PDF отдаёт текст с пробелом между каждой парой букв. Это артефакт
-    извлечения, а не содержание, поэтому схлопываем здесь, а не в фазе 2.
+    Some PDFs give text with a space between every pair of letters. That is an
+    extraction artifact rather than content, so we collapse it here, not in phase 2.
     """
     lines = ["".join(span["text"] for span in line["spans"]) for line in raw.get("lines", [])]
     return " ".join(" ".join(lines).split())
@@ -53,7 +53,7 @@ def _block_is_mono(raw: dict) -> bool:
 
 
 def read_pages(path: Path, selection: Selection | None = None) -> list[RawPage]:
-    """Читает страницы PDF в сырую раскладку. Страницы вне диапазона не открываются."""
+    """Reads PDF pages into the raw layout. Pages outside the range are never opened."""
     doc = pymupdf.open(path)
     try:
         wanted = selection.page_indexes() if selection else list(range(doc.page_count))
@@ -61,7 +61,7 @@ def read_pages(path: Path, selection: Selection | None = None) -> list[RawPage]:
             wanted = list(range(doc.page_count))
         if wanted[-1] >= doc.page_count:
             raise ValueError(
-                f"страница {wanted[-1] + 1} за пределами документа, в документе {doc.page_count}"
+                f"page {wanted[-1] + 1} is past the end, the document has {doc.page_count}"
             )
 
         pages: list[RawPage] = []
@@ -98,10 +98,12 @@ def _is_heading(block: RawBlock, median: float) -> bool:
     return block.font_size >= median * HEADING_FONT_RATIO and len(block.text) <= HEADING_MAX_CHARS
 
 
-def split_into_chapters(blocks: list[RawBlock], median: float) -> list[Chapter]:
-    """Режет поток блоков на главы по крупному шрифту. Запасной путь без закладок."""
+def split_into_chapters(
+    blocks: list[RawBlock], median: float, language: str = "ru"
+) -> list[Chapter]:
+    """Cuts the block stream into chapters by font size. The fallback without bookmarks."""
     chapters: list[Chapter] = []
-    current = Chapter(title="Без названия", blocks=[])
+    current = Chapter(title=UNTITLED[language], blocks=[])
 
     for raw in blocks:
         if _is_heading(raw, median):
@@ -122,7 +124,7 @@ def split_into_chapters(blocks: list[RawBlock], median: float) -> list[Chapter]:
 def _find_heading_index(
     blocks: list[RawBlock], title: str, page: int, search_from: int
 ) -> int | None:
-    """Ищет блок с текстом заголовка на странице закладки."""
+    """Looks for the block holding the heading text on the bookmark page."""
     wanted = title.strip()
     for index in range(search_from, len(blocks)):
         if blocks[index].page > page:
@@ -139,12 +141,14 @@ def _find_page_start(blocks: list[RawBlock], page: int, search_from: int) -> int
     return None
 
 
-def chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) -> list[Chapter]:
-    """Режет блоки по закладкам PDF.
+def chapters_from_toc(
+    toc: list[list], blocks: list[RawBlock], first_page: int, language: str = "ru"
+) -> list[Chapter]:
+    """Cuts the blocks at the PDF bookmarks.
 
-    Граница главы это блок с текстом заголовка, а не край страницы. Подглавы
-    часто начинаются посреди страницы, и разрез по странице утаскивает хвост
-    предыдущей главы в следующую, а заголовок заставляет прочитать дважды.
+    A chapter boundary is the block with the heading text, not the page edge.
+    Subchapters often start mid-page, and cutting on the page drags the tail of the
+    previous chapter into the next one and makes the heading get read twice.
     """
     starts = [(page, title) for _level, title, page in toc if page >= first_page]
     if not starts:
@@ -182,13 +186,13 @@ def chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) 
             )
         )
 
-    # Блоки до первой закладки это предисловие, терять их нельзя.
+    # The blocks before the first bookmark are the preface, and must not be lost.
     head = blocks[: marks[0][0]]
     if head:
         chapters.insert(
             0,
             Chapter(
-                title="Начало",
+                title=OPENING_TITLE[language],
                 blocks=[Block(kind="paragraph", text=b.text, page=b.page) for b in head],
             ),
         )
@@ -198,9 +202,9 @@ def chapters_from_toc(toc: list[list], blocks: list[RawBlock], first_page: int) 
 class PdfExtractor:
     def __init__(self, clean: bool = True, language: str = "ru") -> None:
         self.clean = clean
-        # В PDF языка нет ни в метаданных, ни в разметке, поэтому его называет
-        # тот, кто выбирает голос. Нормализация обязана совпадать с голосом:
-        # русские числительные внутри английской книги читаются как мусор.
+        # A PDF carries no language in its metadata or its markup, so whoever picks
+        # the voice names it. Normalization has to match the voice: Russian numerals
+        # inside an English book read as garbage.
         self.language = language
         self.report: CleanReport | None = None
 
@@ -211,8 +215,8 @@ class PdfExtractor:
         chars_per_page = sum(len(b.text) for b in blocks) / max(1, len(pages))
         if chars_per_page < MIN_CHARS_PER_PAGE:
             raise NoTextLayer(
-                f"в PDF нет текстового слоя ({chars_per_page:.0f} символов на страницу). "
-                "Похоже, это скан. Нужен OCR, а он за рамками проекта."
+                f"the PDF has no text layer ({chars_per_page:.0f} characters per page). "
+                "This looks like a scan. It needs OCR, which is out of scope here."
             )
 
         doc = pymupdf.open(path)
@@ -225,11 +229,11 @@ class PdfExtractor:
         if self.clean:
             blocks, self.report = clean_pages(pages)
             if not blocks:
-                raise NoTextLayer("после чистки не осталось текста")
+                raise NoTextLayer("no text was left after cleaning")
 
-        chapters = chapters_from_toc(toc, blocks, pages[0].number) if toc else []
+        chapters = chapters_from_toc(toc, blocks, pages[0].number, self.language) if toc else []
         if not chapters:
-            chapters = split_into_chapters(blocks, median_font_size(blocks))
+            chapters = split_into_chapters(blocks, median_font_size(blocks), self.language)
 
         language = self.language
         if self.clean:

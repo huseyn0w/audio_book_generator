@@ -8,7 +8,7 @@ from book2audio.clean.speech import (
     strip_urls,
 )
 
-# --- числа ---
+# --- numbers ---
 
 
 def test_plain_number_becomes_words_in_russian():
@@ -36,11 +36,11 @@ def test_decimal_number_is_expanded():
 
 
 def test_number_glued_to_letters_is_left_alone():
-    """A4 и COVID19 читать по частям бессмысленно."""
+    """Reading A4 and COVID19 in pieces makes no sense."""
     assert numbers_to_words("формат A4", "ru") == "формат A4"
 
 
-# --- римские цифры ---
+# --- roman numerals ---
 
 
 def test_roman_numeral_in_a_heading_becomes_a_number():
@@ -59,7 +59,7 @@ def test_word_in_capitals_is_not_a_roman_numeral():
     assert roman_to_words("МВД и ЦИК", "ru") == "МВД и ЦИК"
 
 
-# --- сокращения ---
+# --- abbreviations ---
 
 
 @pytest.mark.parametrize(
@@ -89,7 +89,7 @@ def test_abbreviation_inside_a_word_is_not_touched():
     assert expand_abbreviations("АЛГОРИТМ", "ru") == "АЛГОРИТМ"
 
 
-# --- ссылки ---
+# --- links ---
 
 
 def test_url_becomes_a_word():
@@ -104,7 +104,7 @@ def test_plain_text_is_untouched_by_url_rule():
     assert strip_urls("обычный текст", "ru") == "обычный текст"
 
 
-# --- всё вместе ---
+# --- everything together ---
 
 
 def test_full_normalization_applies_every_rule():
@@ -122,7 +122,7 @@ def test_normalization_keeps_ordinary_prose_intact():
     assert normalize_for_speech(text, "ru") == text
 
 
-# --- падежи года ---
+# --- the cases of the year ---
 
 
 @pytest.mark.parametrize(
@@ -136,11 +136,11 @@ def test_normalization_keeps_ordinary_prose_intact():
     ],
 )
 def test_year_agrees_with_the_preposition(phrase, expected):
-    """Без склонения выходит «в тысяча восемьсот первый году», это режет слух."""
+    """Without declension you get «в тысяча восемьсот первый году», which grates."""
     assert numbers_to_words(phrase, "ru") == expected
 
 
-# --- порядковые в заголовках ---
+# --- ordinals in headings ---
 
 
 @pytest.mark.parametrize(
@@ -154,7 +154,7 @@ def test_year_agrees_with_the_preposition(phrase, expected):
     ],
 )
 def test_chapter_number_is_read_as_an_ordinal(heading, expected):
-    """«Глава один» звучит неправильно, и слышно это на каждой границе главы."""
+    """«Глава один» sounds wrong, and you hear it at every chapter boundary."""
     assert normalize_for_speech(heading, "ru") == expected
 
 
@@ -166,7 +166,7 @@ def test_english_headings_keep_the_plain_number_word():
     assert normalize_for_speech("Chapter 2", "en") == "Chapter two"
 
 
-# --- римские века ---
+# --- roman centuries ---
 
 
 @pytest.mark.parametrize(
@@ -179,7 +179,7 @@ def test_english_headings_keep_the_plain_number_word():
     ],
 )
 def test_roman_century_reads_as_an_ordinal(phrase, expected):
-    """«III в.» как «три век» меняет смысл на количество, а не на порядок."""
+    """«III в.» as «три век» turns it into a count instead of an order."""
     assert normalize_for_speech(phrase, "ru") == expected
 
 

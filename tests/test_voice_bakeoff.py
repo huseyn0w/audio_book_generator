@@ -62,7 +62,7 @@ def test_build_engines_maps_names_to_languages():
 
 
 def test_build_engines_rejects_unknown_name():
-    with pytest.raises(ValueError, match="неизвестный движок"):
+    with pytest.raises(ValueError, match="unknown engine"):
         build_engines(["whisper"])
 
 
@@ -74,7 +74,7 @@ def test_bakeoff_writes_player_page(tmp_path):
 
 
 def test_player_page_hides_voice_names_from_visible_text(tmp_path):
-    """Сравнение слепое: имя голоса живёт в data-атрибуте, а не в тексте страницы."""
+    """The comparison is blind: the voice name lives in a data attribute, not the text."""
     run_bakeoff([(FakeEngine(), "ru")], tmp_path)
     html = (tmp_path / "index.html").read_text(encoding="utf-8")
     assert 'data-voice="fake/fake_a"' in html
@@ -88,11 +88,11 @@ def test_player_page_shows_gender_mark(tmp_path):
     assert ">ru_02 ♂<" in html
 
 
-# --- сравнение на тексте своей книги ---
+# --- comparing on the text of your own book ---
 
 
 def test_bakeoff_uses_the_given_text(tmp_path):
-    """Голос судят на своей книге, а не на чужом абзаце."""
+    """A voice is judged on your own book, not on somebody else's paragraph."""
     import wave
 
     run_bakeoff([(FakeEngine(), "ru")], tmp_path, text="короткий")
@@ -119,7 +119,7 @@ def test_engine_sets_include_russian_only_options():
 
 
 def test_sample_text_reads_a_paragraph_from_a_book(tmp_path):
-    """Берём длинный абзац: по одной фразе голос не оценишь."""
+    """We take a long paragraph: one phrase is not enough to judge a voice."""
     book = tmp_path / "b.fb2"
     long_paragraph = "Довольно длинный абзац про инновации и рынки. " * 6
     book.write_text(
@@ -133,5 +133,5 @@ def test_sample_text_reads_a_paragraph_from_a_book(tmp_path):
     text = sample_text(book, "ru")
     assert "инновации" in text
     assert len(text) > 200
-    # Предел модели: слишком длинный кусок Silero не примет.
+    # The model limit: Silero will not take a piece that long.
     assert len(text) <= 600

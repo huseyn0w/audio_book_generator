@@ -1,4 +1,4 @@
-"""Латиница в кириллицу для русского синтеза.
+"""Latin into Cyrillic for Russian synthesis.
 
 В таблице символов русской модели Silero латинских букв нет. Одна буква
 из «E*Trade Bank» роняет apply_tts с KeyError, а в мягком пути движок
@@ -11,7 +11,7 @@
 
 import re
 
-# Английские названия букв русскими буквами: так аббревиатуры и читают вслух.
+# English letter names in Russian letters: that is how abbreviations get read out.
 LETTER_NAMES = {
     "a": "эй",
     "b": "би",
@@ -41,7 +41,7 @@ LETTER_NAMES = {
     "z": "зед",
 }
 
-# Сочетания разбираются раньше отдельных букв, порядок внутри важен.
+# Combinations are matched before single letters, and the order inside matters.
 DIGRAPHS = [
     ("sch", "ш"),
     ("tch", "ч"),
@@ -94,22 +94,22 @@ SINGLES = {
     "z": "з",
 }
 
-# Долгие гласные для «магической e»: chase, nike, coke.
+# Long vowels for the "magic e": chase, nike, coke.
 LONG = {"a": "эй", "e": "и", "i": "ай", "o": "оу", "u": "ю"}
 
 CONSONANT = "bcdfghjklmnpqrstvwxz"
 
-# Гласная, одна согласная, немая e на конце: гласная читается долго.
+# A vowel, one consonant, a silent e at the end: the vowel is read long.
 MAGIC_E = re.compile(rf"^(.*?)([aeiou])([{CONSONANT}])e$")
 
-# Просто немая e после согласной: google, apple.
+# Just a silent e after a consonant: google, apple.
 SILENT_E = re.compile(rf"^(.{{3,}}[{CONSONANT}])e$")
 
-# Слово целиком из заглавных и длиной от двух букв это аббревиатура.
-# Одна заглавная это инициал, его читаем как букву, но по тому же словарю.
+# A word in all caps and at least two letters long is an abbreviation.
+# One capital is an initial, read as a letter, but from the same table.
 ACRONYM = re.compile(r"^[A-Z]{2,6}$")
 
-# Слово вместе с апострофами и внутренними дефисами.
+# A word together with its apostrophes and inner hyphens.
 WORD = re.compile(r"[A-Za-z]+(?:['’-][A-Za-z]+)*")
 
 
@@ -118,8 +118,8 @@ def _spell(word: str) -> str:
 
 
 def _translit_word(word: str) -> str:
-    """Приблизительно. Побуквенный перевод не знает английской фонетики,
-    но узнаваемое имя вслух лучше, чем выброшенное движком слово."""
+    """Approximate. A letter by letter transfer knows no English phonetics, but a
+    recognizable name read aloud beats a word the engine throws away."""
     rest = word.lower()
     magic = MAGIC_E.match(rest)
     if magic:
@@ -138,11 +138,11 @@ def _translit_word(word: str) -> str:
                 break
         else:
             char = rest[0]
-            # «Sony» на конце звучит «сони», а не «сонй».
+            # "Sony" ends as «сони», not «сонй».
             if char == "y" and len(rest) == 1 and out:
                 out.append("и")
             else:
-                # Кириллица от «магической e», дефисы и апострофы идут как есть.
+                # Cyrillic from the "magic e", hyphens and apostrophes pass through.
                 out.append(SINGLES.get(char, char))
             rest = rest[1:]
     return "".join(out)
@@ -159,9 +159,9 @@ def _replace(match: re.Match) -> str:
 
 
 def latin_to_cyrillic(text: str) -> str:
-    """Переводит латинские слова в кириллицу. Кириллицу и цифры не трогает."""
+    """Turns Latin words into Cyrillic. Cyrillic and digits are left alone."""
     if not any("a" <= c.lower() <= "z" for c in text):
         return text
-    # Амперсанд в названиях это «и»: AT&T читают «эй-ти энд ти».
+    # An ampersand in a name is "and": AT&T is read «эй-ти энд ти».
     text = re.sub(r"\s*&\s*", " энд ", text)
     return WORD.sub(_replace, text)

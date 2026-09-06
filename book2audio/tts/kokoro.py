@@ -1,7 +1,7 @@
-"""Английский синтез через Kokoro-82M на MLX.
+"""English synthesis through Kokoro-82M on MLX.
 
-Работает на Apple GPU. Языковой код берётся из префикса голоса:
-a это американский английский, b это британский.
+Runs on the Apple GPU. The language code comes from the voice prefix:
+a is American English, b is British.
 """
 
 from pathlib import Path
@@ -28,15 +28,15 @@ VOICES: list[str] = [
 
 LANG_BY_PREFIX = {"a": "a", "b": "b"}
 
-# Идентификатор Kokoro кодирует и язык, и пол: af_nova это American female.
+# A Kokoro id encodes both language and gender: af_nova is American female.
 GENDER_BY_LETTER = {"f": "female", "m": "male"}
 
 
 class KokoroEngine:
     name = "kokoro"
-    # Замер на M-серии. Kokoro заметно тяжелее Silero.
+    # Measured on the M series. Kokoro is noticeably heavier than Silero.
     realtime = 5.8
-    # Kokoro режет длинный текст сам, но чанкер держит ту же планку.
+    # Kokoro splits long text itself, but the chunker holds the same limit.
     max_chars = 800
     sample_rate = 24000
 
@@ -51,7 +51,7 @@ class KokoroEngine:
     def _lang_code(self, voice: str) -> str:
         prefix = voice[0]
         if prefix not in LANG_BY_PREFIX:
-            raise ValueError(f"не понял язык голоса: {voice}")
+            raise ValueError(f"cannot tell the language of voice: {voice}")
         return LANG_BY_PREFIX[prefix]
 
     def _load(self):
@@ -64,9 +64,9 @@ class KokoroEngine:
 
     def synth(self, text: str, voice: str, out_path: Path) -> None:
         if voice not in VOICES:
-            raise ValueError(f"неизвестный голос: {voice}")
+            raise ValueError(f"unknown voice: {voice}")
         if not text.strip():
-            raise ValueError("пустой текст")
+            raise ValueError("empty text")
         chunks = [
             np.asarray(result.audio, dtype=np.float32)
             for result in self._load().generate(
@@ -74,5 +74,5 @@ class KokoroEngine:
             )
         ]
         if not chunks:
-            raise RuntimeError(f"Kokoro ничего не выдал на текст: {text[:60]!r}")
+            raise RuntimeError(f"Kokoro returned nothing for text: {text[:60]!r}")
         write_wav_mono16(out_path, np.concatenate(chunks), self.sample_rate)

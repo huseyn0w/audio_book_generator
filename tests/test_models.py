@@ -10,12 +10,12 @@ def make_chapter(title="Глава 1", texts=("абзац раз", "абзац �
 
 
 def test_block_rejects_unknown_kind():
-    with pytest.raises(ValueError, match="неизвестный вид блока"):
+    with pytest.raises(ValueError, match="unknown block kind"):
         Block(kind="footnote", text="что-то")
 
 
 def test_block_rejects_empty_text():
-    with pytest.raises(ValueError, match="пустой текст"):
+    with pytest.raises(ValueError, match="empty block text"):
         Block(kind="paragraph", text="   ")
 
 
@@ -40,7 +40,7 @@ def test_document_counts_characters_across_chapters():
 
 
 def test_document_rejects_unsupported_language():
-    with pytest.raises(ValueError, match="неподдерживаемый язык"):
+    with pytest.raises(ValueError, match="unsupported language"):
         Document(title="Buch", author=None, language="de", chapters=[])
 
 
@@ -51,17 +51,17 @@ def test_selection_defaults_to_whole_document():
 
 
 def test_selection_rejects_pages_and_chapters_together():
-    with pytest.raises(ValueError, match="или страницы, или главы"):
+    with pytest.raises(ValueError, match="either pages or chapters"):
         Selection(pages=(1, 5), chapters=(0, 1))
 
 
 def test_selection_rejects_reversed_page_range():
-    with pytest.raises(ValueError, match="начало диапазона"):
+    with pytest.raises(ValueError, match="starts after it ends"):
         Selection(pages=(9, 3))
 
 
 def test_selection_rejects_page_below_one():
-    with pytest.raises(ValueError, match="страницы нумеруются с единицы"):
+    with pytest.raises(ValueError, match="numbered from one"):
         Selection(pages=(0, 5))
 
 
@@ -73,7 +73,7 @@ def test_selection_page_indexes_is_empty_without_range():
     assert Selection().page_indexes() == []
 
 
-# --- разбор диапазона страниц ---
+# --- parsing the page range ---
 
 
 def test_page_spec_reads_a_range():

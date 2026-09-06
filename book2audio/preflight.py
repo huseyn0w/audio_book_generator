@@ -1,41 +1,40 @@
-"""Проверки до запуска.
+"""Checks before the run.
 
-Про отсутствие ffmpeg надо узнавать на старте, а не на сборке m4b, когда
-синтез уже отработал полчаса.
+A missing ffmpeg has to surface at startup, not while assembling the m4b, when
+synthesis has already run for half an hour.
 """
 
 import shutil
 from pathlib import Path
 
-# Инструмент и команда, которой он ставится.
+# The tool and the command that installs it.
 INSTALL = {"ffmpeg": "brew install ffmpeg", "espeak-ng": "brew install espeak-ng"}
 
-# ffmpeg нужен всегда: им склеивается и кодируется всё. espeak-ng фонемизирует
-# незнакомые слова для Kokoro, то есть нужен только английскому. Silero
-# обходится своими средствами.
+# ffmpeg is always needed: it joins and encodes everything. espeak-ng phonemizes
+# unknown words for Kokoro, so only English needs it. Silero manages on its own.
 TOOLS_BY_LANGUAGE = {"ru": ("ffmpeg",), "en": ("ffmpeg", "espeak-ng")}
 
-# wav 24000 Гц, 16 бит, моно это 48 килобайт на секунду речи.
+# A wav at 24000 Hz, 16 bit, mono is 48 kilobytes per second of speech.
 BYTES_PER_SECOND = 48_000
 
-# Скорость прозы, замер на реальных книгах.
+# Prose speed, measured on real books.
 CHARS_PER_SECOND = 15.0
 
-# Кэш чанков и склеенные главы лежат на диске одновременно, плюс запас
-# на итоговый m4b и временные файлы ffmpeg.
+# The chunk cache and the joined chapters sit on disk at the same time, plus room
+# for the final m4b and ffmpeg's temporary files.
 COPIES = 2.5
 
 
 class MissingTool(Exception):
-    """Нет системной программы. В тексте лежит команда, которой её поставить."""
+    """A system program is missing. The message carries the command that installs it."""
 
 
 class NotEnoughSpace(Exception):
-    """Промежуточные wav не поместятся."""
+    """The intermediate wavs will not fit."""
 
 
 def missing_tools(language: str | None = None) -> list[str]:
-    """Чего не хватает. Без языка проверяет всё, что вообще может понадобиться."""
+    """What is missing. Without a language it checks everything that could be needed."""
     if language is None:
         wanted: tuple[str, ...] = tuple(INSTALL)
     else:
@@ -48,16 +47,16 @@ def check_tools(language: str | None = None) -> None:
     if not missing:
         return
     commands = "; ".join(INSTALL[tool] for tool in missing)
-    raise MissingTool(f"не хватает: {', '.join(missing)}. Поставить: {commands}")
+    raise MissingTool(f"missing: {', '.join(missing)}. Install with: {commands}")
 
 
 def estimate_bytes(chars: int) -> int:
-    """Сколько места займёт работа над книгой такого объёма."""
+    """How much room a book of this size needs while it is being worked on."""
     return int(chars / CHARS_PER_SECOND * BYTES_PER_SECOND * COPIES)
 
 
 def free_bytes(path: Path) -> int:
-    """Свободное место там, где будет работа. Папки может ещё не быть."""
+    """Free space where the work will happen. The folder may not exist yet."""
     probe = Path(path)
     while not probe.exists() and probe != probe.parent:
         probe = probe.parent
@@ -70,5 +69,5 @@ def check_space(path: Path, chars: int) -> None:
     if free >= needed:
         return
     raise NotEnoughSpace(
-        f"мало места: нужно примерно {needed / 1e9:.1f} ГБ, свободно {free / 1e9:.1f} ГБ"
+        f"not enough space: about {needed / 1e9:.1f} GB needed, {free / 1e9:.1f} GB free"
     )

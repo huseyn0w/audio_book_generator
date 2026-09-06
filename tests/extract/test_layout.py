@@ -1,4 +1,4 @@
-"""Сырая раскладка PDF. Фаза 2 чистит именно её, поэтому шрифты и bbox не теряем."""
+"""The raw PDF layout. Phase 2 cleans this, so fonts and bboxes must not be lost."""
 
 import pytest
 
@@ -18,7 +18,7 @@ def test_raw_block_keeps_font_size_and_bbox():
 
 
 def test_raw_block_rejects_empty_text():
-    with pytest.raises(ValueError, match="пустой текст"):
+    with pytest.raises(ValueError, match="empty block text"):
         block(text="   ")
 
 
@@ -29,13 +29,13 @@ def test_raw_block_exposes_top_and_height():
 
 
 def test_median_font_size_weights_by_text_length():
-    """Один огромный заголовок не должен сдвигать медиану основного текста."""
+    """One huge heading must not move the median of the body text."""
     blocks = [block(text="а" * 500, size=14.0), block(text="Заголовок", size=30.0)]
     assert median_font_size(blocks) == 14.0
 
 
 def test_median_font_size_raises_on_empty_input():
-    with pytest.raises(ValueError, match="нет блоков"):
+    with pytest.raises(ValueError, match="no blocks"):
         median_font_size([])
 
 

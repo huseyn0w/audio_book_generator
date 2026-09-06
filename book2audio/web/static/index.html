@@ -17,7 +17,7 @@
     </select>
   </header>
 
-  <!-- 1. загрузка -->
+  <!-- 1. upload -->
   <section id="screen-upload" class="screen active" aria-labelledby="h-upload">
     <h2 id="h-upload" data-i18n="upload.title"></h2>
     <div id="dropzone" class="dropzone" tabindex="0" role="button"
@@ -62,7 +62,7 @@
     <p id="upload-error" class="error" hidden role="alert"></p>
   </section>
 
-  <!-- 2. предпросмотр -->
+  <!-- 2. preview -->
   <section id="screen-review" class="screen" aria-labelledby="h-review">
     <h2 id="h-review" data-i18n="review.title"></h2>
     <p class="muted" data-i18n="review.hint"></p>
@@ -99,7 +99,7 @@
     </div>
   </section>
 
-  <!-- 3. прогресс -->
+  <!-- 3. progress -->
   <section id="screen-progress" class="screen" aria-labelledby="h-progress">
     <h2 id="h-progress" data-i18n="progress.title"></h2>
     <p id="progress-title" class="mono muted"></p>
@@ -114,7 +114,7 @@
     <button id="cancel" class="danger" data-i18n="progress.cancel"></button>
   </section>
 
-  <!-- 4. готово -->
+  <!-- 4. done -->
   <section id="screen-done" class="screen" aria-labelledby="h-done">
     <h2 id="h-done" data-i18n="done.title"></h2>
     <div class="card">
@@ -129,7 +129,7 @@
     </div>
   </section>
 
-  <!-- ошибка -->
+  <!-- failure -->
   <section id="screen-failed" class="screen" aria-labelledby="h-failed">
     <h2 id="h-failed" data-i18n="failed.title"></h2>
     <p id="failed-message" class="error" role="alert"></p>
@@ -139,6 +139,11 @@
     </div>
     <p class="hint" data-i18n="failed.hint"></p>
   </section>
+
+  <footer class="credit">
+    <span data-i18n="app.madeBy"></span>
+    <a href="https://elman.group" target="_blank" rel="noopener noreferrer">Elman Huseynov</a>
+  </footer>
 </main>
 <script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>

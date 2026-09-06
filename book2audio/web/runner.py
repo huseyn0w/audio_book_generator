@@ -1,8 +1,8 @@
-"""Фоновый исполнитель задач.
+"""The background job runner.
 
-Один поток на всё: пользователь один, задача одна. Отдельный процесс-воркер
-и брокер здесь не окупаются, а состояние в SQLite позволяет перезапустить
-веб-процесс, не потеряв задачу.
+One thread for everything: one user, one job. A separate worker process and a
+broker do not pay for themselves here, and state in SQLite lets the web process
+restart without losing the job.
 """
 
 import json
@@ -21,7 +21,13 @@ from book2audio.assemble import (
 from book2audio.audio import concat, silence
 from book2audio.chunker import chunk_document
 from book2audio.extract.base import NoTextLayer
-from book2audio.models import Block, Chapter, Document, parse_page_spec
+from book2audio.models import (
+    CHAPTER_LABEL,
+    Block,
+    Chapter,
+    Document,
+    parse_page_spec,
+)
 from book2audio.pipeline import pick_extractor
 from book2audio.tts.base import TTSEngine, pick_default
 from book2audio.tts.cache import SynthCache
@@ -32,7 +38,7 @@ from book2audio.web.jobs import Job, JobStore, State
 
 
 class Cancelled(Exception):
-    """Задачу отменили из интерфейса."""
+    """The job was cancelled from the interface."""
 
 
 def build_engine(language: str, engine_name: str = "") -> TTSEngine:
@@ -54,13 +60,14 @@ class Runner:
         self.store = store
         self.work_root = Path(work_root)
         self.out_root = Path(out_root)
-        # Кэш общий на все задачи и лежит вне work: ключ считается от текста,
-        # голоса и версии движка, задача тут ни при чём. Раньше он лежал
-        # внутри work/<job_id>, и повторная загрузка книги считала всё заново.
+        # The cache is shared by every job and sits outside work: the key comes from
+        # the text, the voice and the engine version, and the job has nothing to do
+        # with it. It used to live inside work/<job_id>, and uploading a book again
+        # recomputed everything.
         self.cache_root = Path(cache_root) if cache_root else self.work_root.parent / "cache"
         self.engine_name = engine_name
         self.copy_to = copy_to
-        # Один рабочий поток: синтез упирается в CPU, параллелить нечего.
+        # One worker thread: synthesis is CPU bound, there is nothing to parallelize.
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="book2audio")
         self._engines: dict[str, TTSEngine] = {}
 
@@ -68,12 +75,12 @@ class Runner:
         self.pool.shutdown(wait=False, cancel_futures=True)
 
     def _engine_for(self, language: str) -> TTSEngine:
-        """Движок кэшируется: загрузка весов Silero занимает секунды."""
+        """The engine is cached: loading the Silero weights takes seconds."""
         if language not in self._engines:
             self._engines[language] = build_engine(language, self.engine_name)
         return self._engines[language]
 
-    # --- извлечение ---
+    # --- extraction ---
 
     def start_extraction(self, job_id: str) -> None:
         self.pool.submit(self._guarded, job_id, self._extract)
@@ -85,16 +92,16 @@ class Runner:
         extractor = pick_extractor(job.source, clean=True, language=job.language)
         document = extractor.extract(job.source, parse_page_spec(job.selection))
 
-        # Через браузер не видно, что именно чистка выбросила. Отчёт кладём
-        # рядом с отчётом о синтезе, отдаётся отдельным роутом.
+        # From the browser you cannot see what cleaning dropped. The report goes
+        # next to the synthesis report and is served by its own route.
         report = getattr(extractor, "report", None)
         if report is not None:
             (work / "clean_report.json").write_text(
                 json.dumps(report.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
             )
         self.store.set_title(job.id, document.title)
-        # Синтез пересобирает документ из правленого текста, обложка туда
-        # не попадает. Кладём её на диск сейчас, пока она ещё в руках.
+        # Synthesis rebuilds the document from the edited text, and the cover does
+        # not travel with it. We put it on disk now, while we still hold it.
         if document.cover:
             (work / "cover.jpg").write_bytes(document.cover)
         self.store.save_review(
@@ -110,14 +117,14 @@ class Runner:
         )
         self.store.set_state(job.id, State.READY)
 
-    # --- синтез ---
+    # --- synthesis ---
 
     def enqueue(self, job_id: str) -> None:
         self.store.mark_queued(job_id)
         self.pool.submit(self._guarded, job_id, self._synthesize)
 
     def _document_from_review(self, job: Job) -> Document:
-        """Собирает документ из правленого текста, а не из исходника заново."""
+        """Builds the document from the edited text, not from the source again."""
         review = self.store.get_review(job.id) or []
         chapters = [
             Chapter(
@@ -139,10 +146,10 @@ class Runner:
         )
 
     def voice_for(self, engine: TTSEngine, job: Job) -> str:
-        """Голос, который движок действительно умеет.
+        """A voice the engine actually has.
 
-        Значения по умолчанию заданы для Silero и Kokoro, но движок может
-        быть другим, а сохранённый голос устареть после смены модели.
+        The defaults are set for Silero and Kokoro, but the engine may be another
+        one, and a saved voice can go stale after a model change.
         """
         available = {v.id: v.gender for v in engine.voices()}
         if job.voice and job.voice in available:
@@ -157,7 +164,7 @@ class Runner:
         self.store.set_state(job.id, State.SYNTHESIZING)
         document = self._document_from_review(job)
         if not document.chapters:
-            raise ValueError("нечего озвучивать: не выбрано ни одной главы")
+            raise ValueError("nothing to read: no chapter was selected")
 
         engine = self._engine_for(job.language)
         voice = self.voice_for(engine, job)
@@ -204,10 +211,14 @@ class Runner:
             joined = chapters_dir / f"{index:04d}.wav"
             concat(parts, joined, engine.sample_rate)
             built.append(
-                ChapterAudio(chapter.title or f"Глава {index + 1}", joined, wav_duration(joined))
+                ChapterAudio(
+                    chapter.title or f"{CHAPTER_LABEL[job.language]} {index + 1}",
+                    joined,
+                    wav_duration(joined),
+                )
             )
 
-        # Сорванные чанки стали тишиной. Отчёт лежит рядом с отчётом о чистке.
+        # Failed chunks became silence. The report sits next to the cleaning report.
         if cache.failures:
             (work / "synth_report.json").write_text(
                 json.dumps(cache.report(), ensure_ascii=False, indent=2), encoding="utf-8"
@@ -224,7 +235,7 @@ class Runner:
                 built, document, out_dir / f"{name}.m4b", cover=cover if cover.exists() else None
             )
 
-        # Папка, выбранная для этой книги, важнее папки запуска сервера.
+        # The folder chosen for this book wins over the one the server started with.
         folder = Path(job.destination) if job.destination else self.copy_to
         if folder and result.is_file():
             folder.mkdir(parents=True, exist_ok=True)
@@ -232,7 +243,7 @@ class Runner:
 
         self.store.finish(job.id, result)
 
-    # --- общая обвязка ---
+    # --- the shared wiring ---
 
     def _guarded(self, job_id: str, action) -> None:
         job = self.store.get(job_id)
@@ -244,9 +255,9 @@ class Runner:
             pass
         except NoTextLayer as exc:
             self.store.fail(job_id, str(exc))
-        except Exception as exc:  # noqa: BLE001 — задача не должна ронять поток
-            # Silero кидает голый ValueError без текста, и на экране «Не
-            # получилось» оставалась пустая строка. Имя класса есть всегда.
-            detail = str(exc).strip() or "подробностей нет, смотрите лог сервера"
+        except Exception as exc:  # noqa: BLE001 - a job must not kill the thread
+            # Silero throws a bare ValueError with no text, and the failure screen
+            # was left with an empty line. The class name is always there.
+            detail = str(exc).strip() or "no details, look at the server log"
             self.store.fail(job_id, f"{type(exc).__name__}: {detail}")
             traceback.print_exc()

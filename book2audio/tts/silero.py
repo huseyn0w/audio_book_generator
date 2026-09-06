@@ -1,7 +1,7 @@
-"""Русский синтез через Silero v5.
+"""Russian synthesis through Silero v5.
 
-Модель v5_5_ru сама расставляет ударения и разбирает омографы,
-поэтому стадия чистки этим не занимается.
+The v5_5_ru model places stress marks and resolves homographs on its own,
+so the cleaning stage does not deal with that.
 """
 
 from pathlib import Path
@@ -13,12 +13,12 @@ from book2audio.net import ensure_ssl_certs
 from book2audio.tts.base import Voice
 from book2audio.tts.translit import latin_to_cyrillic
 
-# Порядок совпадает с model.speakers. Медленный тест это сторожит.
+# The order matches model.speakers. A slow test guards that.
 VOICES: dict[str, list[str]] = {
     "v5_5_ru": ["aidar", "baya", "kseniya", "eugene", "xenia"],
     "v5_ru": ["aidar", "baya", "kseniya", "eugene", "xenia"],
-    # Дикторы стран СНГ, читающие по-русски. Часть из них с акцентом,
-    # поэтому в сравнении голосов они идут после родных v5_5_ru.
+    # CIS narrators reading in Russian. Some of them have an accent, so in the
+    # voice comparison they come after the native v5_5_ru ones.
     "v5_cis_base": [
         "ru_aigul",
         "ru_albina",
@@ -52,8 +52,8 @@ VOICES: dict[str, list[str]] = {
     ],
 }
 
-# Пол родных голосов известен точно. У дикторов СНГ его не угадываем:
-# в UI эта модель не идёт, она нужна только скрипту сравнения.
+# The gender of the native voices is known exactly. We do not guess it for the
+# CIS narrators: that model never reaches the UI, only the comparison script.
 GENDER: dict[str, str] = {
     "aidar": "male",
     "baya": "female",
@@ -64,23 +64,23 @@ GENDER: dict[str, str] = {
 
 ALLOWED_SAMPLE_RATES = (8000, 24000, 48000)
 
-# Предел длины куска. Замер бисекцией 2026-09-05 на реальном абзаце:
-# v5_5_ru принял 1097 символов, v5_cis_base 795. Берём с запасом: предел
-# зависит от текста, а не только от числа символов.
+# The piece length limit. Measured by bisection on 2026-09-05 on a real
+# paragraph: v5_5_ru took 1097 characters, v5_cis_base 795. We leave room:
+# the limit depends on the text, not on the character count alone.
 MAX_CHARS = {"v5_5_ru": 900, "v5_ru": 900, "v5_cis_base": 700}
 
 
 class SileroEngine:
     name = "silero"
-    # Во сколько раз синтез быстрее реального времени. Замер на M-серии
-    # дал x32-x46, берём нижнюю границу: обещать меньше лучше, чем больше.
+    # How many times faster than real time synthesis runs. The M series measured
+    # x32-x46, and we take the lower bound: promising less beats promising more.
     realtime = 32.0
 
     def __init__(self, sample_rate: int = 24000, model_id: str = "v5_5_ru") -> None:
         if model_id not in VOICES:
-            raise ValueError(f"неизвестная модель: {model_id}")
+            raise ValueError(f"unknown model: {model_id}")
         if sample_rate not in ALLOWED_SAMPLE_RATES:
-            raise ValueError(f"Silero не умеет частоту {sample_rate}")
+            raise ValueError(f"Silero does not do the {sample_rate} sample rate")
         self.sample_rate = sample_rate
         self.model_id = model_id
         self.max_chars = MAX_CHARS[model_id]
@@ -105,19 +105,19 @@ class SileroEngine:
         return self._model
 
     def prepare(self, text: str) -> str:
-        """Готовит текст под таблицу символов модели.
+        """Prepares the text for the model's character table.
 
-        Латинских букв в ней нет: одна буква из «E*Trade Bank» роняет
-        apply_tts с KeyError, а в мягком пути движок просто выбрасывает
-        слово, и название компании пропадает из фразы.
+        It holds no Latin letters: one letter out of "E*Trade Bank" makes
+        apply_tts fail with KeyError, and on the lenient path the engine just
+        drops the word, so the company name disappears from the sentence.
         """
         return latin_to_cyrillic(text)
 
     def synth(self, text: str, voice: str, out_path: Path) -> None:
         if voice not in VOICES[self.model_id]:
-            raise ValueError(f"неизвестный голос: {voice}")
+            raise ValueError(f"unknown voice: {voice}")
         if not text.strip():
-            raise ValueError("пустой текст")
+            raise ValueError("empty text")
         audio = self._load().apply_tts(
             text=self.prepare(text), speaker=voice, sample_rate=self.sample_rate
         )

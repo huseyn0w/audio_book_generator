@@ -35,10 +35,10 @@ def test_state_moves_forward(store, tmp_path):
 
 
 def test_finished_job_cannot_go_back_to_work(store, tmp_path):
-    """Иначе повторный запрос перезапустит уже готовую книгу."""
+    """Otherwise a repeated request would restart a book that is already done."""
     job = store.create(source=tmp_path / "b.pdf", language="ru", gender="female")
     store.set_state(job.id, State.DONE)
-    with pytest.raises(ValueError, match="нельзя перевести"):
+    with pytest.raises(ValueError, match="cannot move the job"):
         store.set_state(job.id, State.SYNTHESIZING)
 
 
@@ -69,7 +69,7 @@ def test_cancel_flag_is_visible_to_the_worker(store, tmp_path):
 def test_cancelling_a_finished_job_is_refused(store, tmp_path):
     job = store.create(source=tmp_path / "b.pdf", language="ru", gender="female")
     store.set_state(job.id, State.DONE)
-    with pytest.raises(ValueError, match="нельзя перевести"):
+    with pytest.raises(ValueError, match="cannot move the job"):
         store.cancel(job.id)
 
 
@@ -118,7 +118,7 @@ def test_job_is_json_friendly(store, tmp_path):
 
 
 def test_store_survives_being_opened_twice(tmp_path):
-    """Веб и фоновый поток открывают одну базу одновременно."""
+    """The web and the background thread open the same database at once."""
     first = JobStore(tmp_path / "jobs.db")
     second = JobStore(tmp_path / "jobs.db")
     job = first.create(source=tmp_path / "b.pdf", language="ru", gender="female")
@@ -138,11 +138,11 @@ def test_job_dataclass_reports_whether_it_is_running():
     ).is_active()
 
 
-# --- перезапуск упавшей задачи ---
+# --- restarting a failed job ---
 
 
 def test_failed_job_can_be_retried(store):
-    """Падение на сборке не должно стоить всей озвучки заново."""
+    """A failure during assembly must not cost the whole reading again."""
     job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
     store.fail(job.id, "ffmpeg не справился")
     store.set_state(job.id, State.SYNTHESIZING)
@@ -157,15 +157,15 @@ def test_retry_clears_the_old_error(store):
 
 
 def test_done_job_still_cannot_go_back(store):
-    """Готовую книгу пересчитывать незачем, это по-прежнему запрещено."""
+    """A finished book need not be redone, and that is still forbidden."""
     job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
     store.finish(job.id, Path("книга.m4b"))
-    with pytest.raises(ValueError, match="нельзя перевести"):
+    with pytest.raises(ValueError, match="cannot move the job"):
         store.set_state(job.id, State.SYNTHESIZING)
 
 
 def test_cancelled_job_still_cannot_go_back(store):
     job = store.create(source=Path("книга.pdf"), language="ru", gender="female")
     store.cancel(job.id)
-    with pytest.raises(ValueError, match="нельзя перевести"):
+    with pytest.raises(ValueError, match="cannot move the job"):
         store.set_state(job.id, State.SYNTHESIZING)

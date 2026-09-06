@@ -1,4 +1,4 @@
-"""Куда класть готовую книгу.
+"""Where the finished book goes.
 
 По умолчанию папка в iCloud Drive, но она подходит не всем и не всегда.
 Путь задаётся флагом, а интерфейс показывает настоящий путь, а не текст
@@ -18,11 +18,11 @@ FIXTURES = Path(__file__).parent / "fixtures"
 runner = CliRunner()
 
 
-# --- разбор назначения ---
+# --- resolving the destination ---
 
 
 def test_no_copy_without_a_folder(monkeypatch):
-    """Книга забирается кнопкой «Скачать». Копия только если её попросили."""
+    """The book is taken with the Download button. A copy only if it was asked for."""
     monkeypatch.delenv(COPY_TO_ENV, raising=False)
     assert destination(None) is None
 
@@ -81,7 +81,7 @@ def test_serve_help_mentions_the_folder():
     assert "--copy-to" in result.stdout
 
 
-# --- веб ---
+# --- web ---
 
 
 def test_api_reports_the_destination(tmp_path):

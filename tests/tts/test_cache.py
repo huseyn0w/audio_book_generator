@@ -21,7 +21,7 @@ def test_key_changes_with_voice(tmp_path):
 
 
 def test_key_changes_with_engine_version(tmp_path):
-    """Смена модели обязана инвалидировать кэш, иначе книга склеится из старых кусков."""
+    """A model change must invalidate the cache, or the book joins up from old pieces."""
     cache = SynthCache(tmp_path)
     old, new = FakeEngine(), FakeEngine()
     new.version = "v2"
@@ -57,7 +57,7 @@ def test_second_call_reuses_the_file_without_synthesizing(tmp_path):
 
 
 def test_failed_synthesis_leaves_no_partial_file(tmp_path):
-    """Оборванный wav в кэше хуже отсутствующего: он молча попадёт в книгу."""
+    """A truncated wav in the cache is worse than a missing one: it slips into the book."""
 
     class Broken(FakeEngine):
         def synth(self, text, voice, out_path):

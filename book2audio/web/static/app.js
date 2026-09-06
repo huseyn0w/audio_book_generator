@@ -1,6 +1,6 @@
 "use strict";
 
-// Состояние задачи живёт на сервере, поэтому здесь только id и экран.
+// The job state lives on the server, so only the id and the screen live here.
 let jobId = null;
 let stream = null;
 let startedAt = 0;
@@ -21,7 +21,7 @@ function showError(message) {
   box.hidden = false;
 }
 
-// --- голоса ---
+// --- voices ---
 
 async function loadVoices() {
   const language = $("language").value;
@@ -45,8 +45,8 @@ async function loadVoices() {
   }
 }
 
-// Образец играет прямо со страницы: диктора надо услышать до того, как
-// на него потрачен час синтеза.
+// The sample plays right from the page: you should hear the narrator before an
+// hour of synthesis is spent on them.
 let sample = null;
 
 async function playSample() {
@@ -69,7 +69,7 @@ async function playSample() {
   }
 }
 
-// --- загрузка ---
+// --- upload ---
 
 async function upload(file) {
   $("upload-error").hidden = true;
@@ -122,12 +122,12 @@ function wireDropzone() {
   });
 }
 
-// --- папка сохранения ---
+// --- the save folder ---
 
 const CUSTOM = "__custom__";
 
-// Полный путь к папке в iCloud занимает две строки и всё равно обрезается.
-// Показываем короткий вид, полный остаётся в подсказке браузера.
+// A full iCloud folder path takes two lines and still gets cut off. We show the
+// short form and leave the full one in the browser tooltip.
 function shortPath(path) {
   const icloud = "/Library/Mobile Documents/com~apple~CloudDocs";
   const home = path.match(/^\/Users\/[^/]+/);
@@ -149,7 +149,7 @@ async function loadDestinations() {
   for (const item of options) {
     const option = document.createElement("option");
     option.value = item.path;
-    // Первый вариант уже переведён, остальные приходят ключами.
+    // The first option is already translated, the rest arrive as keys.
     option.textContent = item.key ? t("review." + item.key) : item.label;
     select.append(option);
   }
@@ -176,10 +176,10 @@ function chosenDestination() {
   return select.value === CUSTOM ? $("destination-custom").value.trim() : select.value;
 }
 
-// --- предпросмотр ---
+// --- preview ---
 
-// «0.3 мин» читается хуже, чем «минуты», а «95 мин» хуже, чем «1 ч 35 мин».
-// Формы согласованы с «займёт около ...», отсюда родительный падеж.
+// "0.3 min" reads worse than "a minute", and "95 min" worse than "1 h 35 min".
+// The forms agree with "takes about ...", hence the Russian genitive.
 function synthTime(minutes) {
   if (minutes < 1) return t("review.underMinute");
   if (minutes < 60) return t("review.minutes", { count: Math.round(minutes) });
@@ -209,7 +209,7 @@ async function openReview() {
     const { expected, found, share } = data.warning;
     warning.textContent = t("review.wrongLanguage", {
       expected: t(expected === "ru" ? "review.languageRu" : "review.languageEn"),
-      // Отдельная форма: «буквы английские», а не «буквы английский».
+      // A separate form: Russian needs «буквы английские», not «буквы английский».
       found: t(found === "ru" ? "review.lettersRu" : "review.lettersEn"),
       share: Math.round(share * 100) + "%",
     });
@@ -286,7 +286,7 @@ async function startSynthesis() {
   watch();
 }
 
-// --- прогресс ---
+// --- progress ---
 
 const STAGE_KEYS = { extract: "progress.extract", synth: "progress.synth", assemble: "progress.assemble" };
 
@@ -297,7 +297,7 @@ function watch() {
   stream.onerror = () => {
     stream.close();
     stream = null;
-    // Соединение живёт ограниченное время, переподключаемся молча.
+    // The connection has a limited life, so we reconnect quietly.
     setTimeout(watch, 1000);
   };
 }
@@ -325,8 +325,8 @@ function render(job) {
   }
 
   show("progress");
-  // Заголовок держит название книги, строка ниже — стадию: дублировать одно
-  // и то же слово в двух местах бессмысленно.
+  // The heading holds the book title and the line below holds the stage: repeating
+  // the same word in two places makes no sense.
   $("progress-title").textContent = job.title || "";
   $("stage").textContent = t(STAGE_KEYS[job.stage] || "progress.preparing");
   if (job.total > 0) {
@@ -352,12 +352,12 @@ async function showDestination() {
       ? t("done.copiedTo", { path: shortPath(destination) })
       : t("done.downloadOnly");
   } catch {
-    // Путь это справка. Книга уже готова, молчим.
+    // The path is a hint. The book is already done, so we stay quiet.
   }
 }
 
-// Сервер отдаёт числа и ключи правил, фраза собирается здесь: язык
-// интерфейса не обязан совпадать с языком книги.
+// The server hands back numbers and rule keys, and the phrase is built here: the
+// interface language need not match the book language.
 function reportText(data) {
   const lines = [];
   const clean = data.clean;
@@ -382,7 +382,7 @@ async function showReport(id) {
     const data = await response.json();
     box.textContent = reportText(data);
   } catch {
-    // Отчёт это справка, а не результат. Молчим, книга уже готова.
+    // The report is a hint, not the result. We stay quiet, the book is done.
   }
 }
 
@@ -394,7 +394,7 @@ function finish(job) {
   show("done");
 }
 
-// --- запуск ---
+// --- start ---
 
 function reset() {
   if (stream) stream.close();
@@ -435,7 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }),
     });
     if (!response.ok) {
-      // Экран ошибки свой, блок ошибки экрана загрузки отсюда не виден.
+      // The failure screen is its own, the upload screen's error box is not visible here.
       $("failed-message").textContent =
         (await response.json()).detail || t("failed.retryFailed");
       return;

@@ -1,4 +1,4 @@
-"""Фикстуры это вырезки из реальных книг. Пересобираются scripts/make_fixtures.py."""
+"""The fixtures are clippings from real books. scripts/make_fixtures.py rebuilds them."""
 
 from pathlib import Path
 
@@ -77,7 +77,7 @@ def test_typeset_fixtures_stay_small_enough_to_commit(name):
 
 
 def test_fb2_fixture_keeps_a_separate_notes_body():
-    """Примечания в FB2 лежат отдельным body, и озвучивать их нельзя."""
+    """FB2 notes live in a separate body and must not be read aloud."""
     from lxml import etree
 
     root = etree.parse(str(FIXTURES / "book_ru.fb2")).getroot()
@@ -100,7 +100,7 @@ def test_fb2_fixture_has_nested_sections():
 
 
 def test_epub_fixture_has_no_html_headings():
-    """Главы приходится брать из оглавления, потому что h1-h3 в книге нет."""
+    """The chapters have to come from the contents, because the book has no h1-h3."""
     import ebooklib
     from bs4 import BeautifulSoup
     from ebooklib import epub

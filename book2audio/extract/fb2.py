@@ -1,7 +1,7 @@
-"""Извлечение FB2. Самый простой из трёх форматов: разметка уже всё сказала.
+"""FB2 extraction. The simplest of the three formats: the markup already said it all.
 
-Тяжёлые эвристики фазы 2 здесь не нужны, шрифтов и координат в FB2 нет.
-Прогоняем только правку текста и нормализацию под речь.
+The heavy phase 2 heuristics are not needed here, FB2 has no fonts and no
+coordinates. We run only the text fixes and the normalization for speech.
 """
 
 import base64
@@ -12,15 +12,15 @@ from lxml import etree
 
 from book2audio.clean.speech import normalize_for_speech
 from book2audio.clean.text import clean_text
-from book2audio.models import Block, Chapter, Document, Selection
+from book2audio.models import OPENING_TITLE, Block, Chapter, Document, Selection
 
-# Теги, которые в озвучку не идут. Таблицы вслух бессмысленны, аннотация
-# это издательская врезка, text-author это подпись под цитатой.
+# Tags that never reach the audio. Tables make no sense read aloud, the annotation
+# is a publisher's insert, and text-author is the attribution under a quote.
 SKIPPED_TAGS = frozenset({"table", "annotation", "image", "text-author"})
 
-# Обёртки, внутрь которых надо зайти. Сверка объёмов FB2 и EPUB одной книги
-# показала, что в <cite> лежат резюме глав по 400-1400 символов, то есть
-# настоящее содержание, а не служебная врезка.
+# Wrappers we have to step inside. Comparing the FB2 and EPUB sizes of one book
+# showed that <cite> holds chapter summaries of 400-1400 characters, that is real
+# content rather than a service insert.
 CONTAINER_TAGS = frozenset({"cite", "epigraph", "poem", "stanza"})
 
 TEXT_TAGS = frozenset({"p", "subtitle", "v"})
@@ -31,7 +31,7 @@ def _local(element) -> str:
 
 
 def _text_of(element) -> str:
-    """Собирает текст элемента, выбрасывая ссылки на примечания."""
+    """Collects an element's text, dropping the footnote links."""
     parts: list[str] = []
     for node in element.iter():
         if node is not element and _local(node) == "a" and node.get("type") == "note":
@@ -51,7 +51,7 @@ def _section_title(section) -> str:
 
 
 def _own_blocks(section) -> list[Block]:
-    """Абзацы самой секции, без вложенных секций."""
+    """The paragraphs of the section itself, without the nested sections."""
     blocks: list[Block] = []
 
     def collect(element) -> None:
@@ -71,11 +71,11 @@ def _own_blocks(section) -> list[Block]:
     return blocks
 
 
-def flatten_sections(root) -> list[Chapter]:
-    """Разворачивает дерево секций в плоский список глав в порядке документа.
+def flatten_sections(root, language: str = "ru") -> list[Chapter]:
+    """Flattens the section tree into a list of chapters in document order.
 
-    Вложенность в FB2 бывает произвольной глубины, а слушателю нужен
-    линейный список глав. Каждая секция с заголовком становится главой.
+    FB2 nesting can be arbitrarily deep, while a listener needs a linear list of
+    chapters. Every section with a heading becomes a chapter.
     """
     body = None
     for element in root:
@@ -93,7 +93,7 @@ def flatten_sections(root) -> list[Chapter]:
         if title:
             blocks.insert(0, Block(kind="heading", text=title))
         if blocks:
-            chapters.append(Chapter(title=title or "Начало", blocks=blocks))
+            chapters.append(Chapter(title=title or OPENING_TITLE[language], blocks=blocks))
         for child in section:
             if _local(child) == "section":
                 walk(child)
@@ -129,14 +129,14 @@ def _metadata(root) -> tuple[str, str | None, str]:
 
 
 def _cover(root) -> bytes | None:
-    """Обложка: <coverpage> ссылается на <binary> по id, тело в base64."""
+    """The cover: <coverpage> points at a <binary> by id, the body is base64."""
     href = ""
     for element in root.iter():
         if _local(element) != "coverpage":
             continue
         for child in element:
             if _local(child) == "image":
-                # Атрибут в пространстве xlink, а namespace в книгах разный.
+                # The attribute lives in the xlink space, and books differ in the namespace.
                 for name, value in child.attrib.items():
                     if name.endswith("href"):
                         href = value
@@ -158,7 +158,7 @@ def _cover(root) -> bytes | None:
 class Fb2Extractor:
     def __init__(self, clean: bool = True, language: str | None = None) -> None:
         self.clean = clean
-        # См. EpubExtractor: выбранный голос главнее метаданных книги.
+        # See EpubExtractor: the chosen voice wins over the book metadata.
         self.language = language
         self.report = None
 
@@ -166,14 +166,14 @@ class Fb2Extractor:
         parser = etree.XMLParser(recover=True, huge_tree=True)
         root = etree.parse(str(path), parser).getroot()
         if root is None or _local(root) != "FictionBook":
-            raise ValueError(f"файл не похож на FB2: {path.name}")
+            raise ValueError(f"this file does not look like FB2: {path.name}")
 
         title, author, language = _metadata(root)
         language = self.language or language
         if language not in {"ru", "en"}:
             language = "ru"
 
-        chapters = flatten_sections(root)
+        chapters = flatten_sections(root, language)
         if selection and selection.chapters:
             wanted = [i for i in selection.chapters if 0 <= i < len(chapters)]
             chapters = [chapters[i] for i in wanted]

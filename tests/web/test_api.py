@@ -39,7 +39,7 @@ def wait_for_state(client, job_id, state, seconds=60.0):
     raise AssertionError(f"задача не дошла до {state}")
 
 
-# --- здоровье и статика ---
+# --- health and static files ---
 
 
 def test_health_endpoint_answers():
@@ -55,7 +55,7 @@ def test_index_page_is_served(client):
     assert "book2audio" in response.text.lower()
 
 
-# --- загрузка ---
+# --- upload ---
 
 
 def test_upload_creates_a_job(client):
@@ -73,7 +73,7 @@ def test_upload_rejects_an_unknown_extension(client, tmp_path):
             data={"language": "ru", "gender": "female"},
         )
     assert response.status_code == 400
-    assert "формат" in response.json()["detail"].lower()
+    assert "format" in response.json()["detail"].lower()
 
 
 def test_upload_rejects_an_unsupported_language(client):
@@ -90,7 +90,7 @@ def test_unknown_job_returns_404(client):
     assert client.get("/api/jobs/nope").status_code == 404
 
 
-# --- предпросмотр ---
+# --- preview ---
 
 
 def test_review_becomes_available_after_extraction(client):
@@ -127,7 +127,7 @@ def test_scanned_pdf_surfaces_a_readable_error(client):
     assert "OCR" in body["error"]
 
 
-# --- голоса ---
+# --- voices ---
 
 
 def test_voices_endpoint_lists_gender(client):
@@ -136,7 +136,7 @@ def test_voices_endpoint_lists_gender(client):
     assert {v["gender"] for v in voices["voices"]} <= {"male", "female", "unknown"}
 
 
-# --- синтез ---
+# --- synthesis ---
 
 
 def test_full_run_produces_a_downloadable_file(client):
@@ -192,7 +192,7 @@ def test_jobs_listing_returns_newest_first(client):
     assert ids.index(second) < ids.index(first)
 
 
-# --- поток прогресса ---
+# --- the progress stream ---
 
 
 def test_progress_stream_is_registered(client):
@@ -204,7 +204,7 @@ def test_progress_stream_is_registered(client):
 
 @pytest.mark.asyncio
 async def test_progress_events_yield_state_changes(tmp_path):
-    """Генератор проверяется напрямую: TestClient буферизует бесконечный поток."""
+    """The generator is checked directly: TestClient buffers an endless stream."""
     from book2audio.web.jobs import JobStore
     from book2audio.web.main import progress_events
 
@@ -243,7 +243,7 @@ async def test_progress_events_stop_on_a_finished_job(tmp_path):
 
 @pytest.mark.asyncio
 async def test_progress_events_give_up_after_the_time_limit(tmp_path):
-    """Брошенная вкладка не должна держать соединение вечно."""
+    """An abandoned tab must not hold the connection forever."""
     from book2audio.web.jobs import JobStore
     from book2audio.web.main import progress_events
 
@@ -275,14 +275,14 @@ def test_synthesize_refuses_when_disk_is_full(client, monkeypatch):
     monkeypatch.setattr("book2audio.preflight.free_bytes", lambda path: 1024)
     response = client.post(f"/api/jobs/{job_id}/synthesize", json={})
     assert response.status_code == 507
-    assert "мало места" in response.json()["detail"]
+    assert "not enough space" in response.json()["detail"]
 
 
-# --- отчёт, оценки и предупреждение о языке ---
+# --- the report, the estimates and the language warning ---
 
 
 def test_review_estimates_synthesis_time(client):
-    """«2 часа ждать» и «10 минут ждать» это разные решения."""
+    """ "A 2 hour wait" and "a 10 minute wait" are different decisions."""
     job_id = upload(client)
     wait_for_state(client, job_id, "ready_for_review")
     body = client.get(f"/api/jobs/{job_id}/review").json()
@@ -295,7 +295,7 @@ def test_review_warns_about_the_wrong_language(client):
     job_id = upload(client, name="typeset_en.pdf", language="ru")
     wait_for_state(client, job_id, "ready_for_review")
     body = client.get(f"/api/jobs/{job_id}/review").json()
-    # Данные, а не фраза: язык интерфейса не обязан совпадать с языком книги.
+    # Data, not a phrase: the interface language need not match the book language.
     assert body["warning"] == {"expected": "ru", "found": "en", "share": 0.88}
 
 
@@ -324,7 +324,7 @@ def test_report_404_for_an_unknown_job(client):
     assert client.get("/api/jobs/нет-такой/report").status_code == 404
 
 
-# --- диапазон страниц ---
+# --- the page range ---
 
 
 def test_upload_accepts_a_page_range(client):
@@ -353,11 +353,11 @@ def test_upload_rejects_a_broken_page_range(client):
             data={"language": "ru", "gender": "female", "pages": "20-10"},
         )
     assert response.status_code == 400
-    assert "диапазон" in response.json()["detail"]
+    assert "range" in response.json()["detail"]
 
 
 def test_page_range_is_ignored_for_formats_without_pages(client):
-    """В EPUB и FB2 страниц нет. Молча притворяться, что есть, вредно."""
+    """EPUB and FB2 have no pages. Quietly pretending they do is harmful."""
     with open(FIXTURES / "book_ru.fb2", "rb") as handle:
         response = client.post(
             "/api/jobs",
@@ -365,7 +365,7 @@ def test_page_range_is_ignored_for_formats_without_pages(client):
             data={"language": "ru", "gender": "female", "pages": "1-5"},
         )
     assert response.status_code == 400
-    assert "страниц" in response.json()["detail"]
+    assert "pages" in response.json()["detail"]
 
 
 def test_synthesize_accepts_a_failed_job(client):

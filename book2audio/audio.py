@@ -1,4 +1,4 @@
-"""Запись и преобразование wav. Всё моно, 16 бит."""
+"""Writing and converting wav. Everything is mono, 16 bit."""
 
 import subprocess
 import tempfile
@@ -9,17 +9,17 @@ import numpy as np
 
 SAMPLE_WIDTH = 2
 
-# Сколько последних строк stderr класть в ошибку. ffmpeg печатает сотни
-# строк о потоках и кодеках, причина падения всегда в конце.
+# How many trailing stderr lines go into the error. ffmpeg prints hundreds of
+# lines about streams and codecs, and the cause is always at the end.
 STDERR_LINES = 20
 
 
 class FfmpegError(subprocess.CalledProcessError):
-    """Падение ffmpeg вместе с причиной.
+    """An ffmpeg failure together with its cause.
 
-    Раньше наверх шёл голый CalledProcessError: код возврата и командная
-    строка, без stderr. Сборка книги на 13 часов упала с «exit status 255»,
-    и по этому сообщению нельзя было понять, что ffmpeg убили сигналом.
+    A bare CalledProcessError used to travel up: the return code and the command
+    line, without stderr. A 13 hour book build died with "exit status 255", and
+    that message gave no way to tell that ffmpeg had been killed by a signal.
     """
 
     @staticmethod
@@ -28,17 +28,15 @@ class FfmpegError(subprocess.CalledProcessError):
 
     @staticmethod
     def explain(code: int) -> str:
-        """Расшифровка кода возврата, если он значит что-то известное."""
+        """What the return code means, when it means something known."""
         if code < 0:
-            return f"код {code}: процесс убит сигналом {-code}"
+            return f"code {code}: the process was killed by signal {-code}"
         if code == 255:
-            return (
-                "код 255: ffmpeg получил сигнал и прервался (обычно SIGTERM при остановке сервера)"
-            )
-        return f"код {code}"
+            return "code 255: ffmpeg got a signal and stopped (usually SIGTERM on server shutdown)"
+        return f"code {code}"
 
     def __str__(self) -> str:
-        parts = [f"ffmpeg не справился, {self.explain(self.returncode)}"]
+        parts = [f"ffmpeg failed, {self.explain(self.returncode)}"]
         stderr = self.stderr
         if isinstance(stderr, bytes):
             stderr = stderr.decode("utf-8", "replace")
@@ -48,7 +46,7 @@ class FfmpegError(subprocess.CalledProcessError):
 
 
 def run_ffmpeg(command: list[str]) -> subprocess.CompletedProcess:
-    """Запускает ffmpeg и отдаёт понятную ошибку вместо голого кода возврата."""
+    """Runs ffmpeg and gives a readable error instead of a bare return code."""
     done = subprocess.run(command, capture_output=True, text=True, check=False)
     if done.returncode != 0:
         raise FfmpegError(done.returncode, command, done.stdout, done.stderr)
@@ -56,7 +54,7 @@ def run_ffmpeg(command: list[str]) -> subprocess.CompletedProcess:
 
 
 def write_wav_mono16(path: Path, samples: np.ndarray, sample_rate: int) -> None:
-    """Пишет float-семплы из диапазона [-1, 1] в wav. Выход за диапазон обрезается."""
+    """Writes float samples from [-1, 1] into a wav. Values outside are clipped."""
     clipped = np.clip(samples, -1.0, 1.0)
     pcm = (clipped * 32767).astype("<i2")
     with wave.open(str(path), "wb") as w:
@@ -67,30 +65,30 @@ def write_wav_mono16(path: Path, samples: np.ndarray, sample_rate: int) -> None:
 
 
 def silence(path: Path, seconds: float, sample_rate: int) -> None:
-    """Пишет wav с тишиной заданной длины."""
+    """Writes a wav of silence of the given length."""
     frames = round(seconds * sample_rate)
     write_wav_mono16(path, np.zeros(frames, dtype=np.float32), sample_rate)
 
 
 def change_speed(src: Path, dst: Path, factor: float) -> None:
-    """Меняет темп без изменения высоты тона. atempo держит диапазон 0.5-100."""
+    """Changes tempo without changing pitch. atempo holds the 0.5-100 range."""
     run_ffmpeg(["ffmpeg", "-y", "-i", str(src), "-filter:a", f"atempo={factor}", str(dst)])
 
 
 def concat(parts: list[Path], dst: Path, sample_rate: int) -> None:
-    """Склеивает wav-файлы в один.
+    """Joins wav files into one.
 
-    Список путей идёт через временный файл, а не через аргументы: книга даёт
-    тысячи чанков, и командная строка такой список не вместит.
+    The list of paths travels through a temporary file rather than arguments: a
+    book gives thousands of chunks, and a command line cannot hold such a list.
     """
     if not parts:
-        raise ValueError("нечего склеивать: пустой список файлов")
+        raise ValueError("nothing to join: the file list is empty")
 
-    # Демуксер concat пропускает несуществующий файл и выходит с нулём:
-    # книга молча теряет кусок. Проверяем сами, до запуска.
+    # The concat demuxer skips a missing file and exits with zero: the book
+    # silently loses a piece. We check it ourselves, before the run.
     missing = [str(p) for p in parts if not p.exists()]
     if missing:
-        raise FileNotFoundError(f"нет файлов для склейки: {', '.join(missing[:5])}")
+        raise FileNotFoundError(f"no files to join: {', '.join(missing[:5])}")
 
     with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as listing:
         for part in parts:

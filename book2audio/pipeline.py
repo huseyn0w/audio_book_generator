@@ -1,7 +1,7 @@
-"""Оркестрация конвейера: книга на входе, wav на выходе.
+"""Pipeline orchestration: a book in, a wav out.
 
-Движок передаётся аргументом, поэтому тесты гоняют весь конвейер
-с заглушкой за секунды. Реальный движок выбирает CLI.
+The engine arrives as an argument, so the tests run the whole pipeline with a
+stub in seconds. The CLI picks the real engine.
 """
 
 import json
@@ -17,7 +17,7 @@ from book2audio.extract.base import Extractor
 from book2audio.extract.epub import EpubExtractor
 from book2audio.extract.fb2 import Fb2Extractor
 from book2audio.extract.pdf import PdfExtractor
-from book2audio.models import Document, Selection
+from book2audio.models import CHAPTER_LABEL, Document, Selection
 from book2audio.tts.base import TTSEngine
 from book2audio.tts.cache import SynthCache
 
@@ -39,16 +39,16 @@ EXTRACTORS: dict[str, Callable[..., Extractor]] = {
     ".fb2": Fb2Extractor,
 }
 
-# Переменная окружения для веб-процесса: uvicorn с --reload создаёт приложение
-# сам по строке импорта, аргумент туда не передать.
+# The environment variable for the web process: uvicorn with --reload builds the
+# app itself from the import string, and an argument cannot reach it.
 COPY_TO_ENV = "BOOK2AUDIO_COPY_TO"
 
 
 def destination(explicit: Path | None) -> Path | None:
-    """Куда копировать готовую книгу.
+    """Where to copy the finished book.
 
-    Явный путь важнее окружения. Без того и другого копия никуда не идёт:
-    книгу забирают кнопкой «Скачать» с телефона или компьютера.
+    An explicit path wins over the environment. Without either, no copy is made:
+    the book is taken with the Download button from a phone or a computer.
     """
     if explicit is not None:
         return Path(explicit).expanduser()
@@ -62,19 +62,19 @@ def pick_extractor(path: Path, clean: bool, language: str = "ru") -> Extractor:
     factory = EXTRACTORS.get(path.suffix.lower())
     if factory is None:
         known = ", ".join(sorted(EXTRACTORS))
-        raise ValueError(f"неизвестный формат {path.suffix!r}, умею пока: {known}")
+        raise ValueError(f"unknown format {path.suffix!r}, so far I can do: {known}")
     return factory(clean=clean, language=language)
 
 
 def _safe_name(title: str) -> str:
-    """Имя файла из названия книги. Слеши и двоеточия ломают путь."""
+    """A file name from the book title. Slashes and colons break the path."""
     from book2audio.assemble import safe_filename
 
     return safe_filename(title, limit=120)
 
 
 def _write_cover(work_dir: Path, data: bytes) -> Path:
-    """Кладёт картинку на диск: ffmpeg берёт обложку файлом, а не байтами."""
+    """Puts the image on disk: ffmpeg takes the cover as a file, not as bytes."""
     target = work_dir / "cover.jpg"
     target.write_bytes(data)
     return target
@@ -94,7 +94,7 @@ def convert(
     cover: Path | None = None,
     copy_to: Path | None = None,
 ) -> Path:
-    """Гонит книгу через весь конвейер и отдаёт путь к готовому wav."""
+    """Runs the book through the whole pipeline and returns the path to the wav."""
     path = Path(path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -103,7 +103,7 @@ def convert(
 
     known_voices = {v.id for v in engine.voices()}
     if voice not in known_voices:
-        raise ValueError(f"неизвестный голос {voice!r} для движка {engine.name}")
+        raise ValueError(f"unknown voice {voice!r} for engine {engine.name}")
 
     def report(stage: Stage, done: int, total: int) -> None:
         if on_progress:
@@ -132,7 +132,7 @@ def convert(
     ]
     total = sum(len(g) for g in grouped)
     if not total:
-        raise ValueError("в выбранном диапазоне нет текста")
+        raise ValueError("the chosen range holds no text")
     report("chunk", 1, 1)
 
     cache = SynthCache(work_dir / "cache")
@@ -145,7 +145,8 @@ def convert(
             silence(path, seconds, engine.sample_rate)
         return path
 
-    # Чанки помнят, из какой главы пришли: без этого не собрать оглавление m4b.
+    # Chunks remember the chapter they came from: without it the m4b table of
+    # contents cannot be built.
     done = 0
     chapter_parts: list[list[Path]] = []
     for chunks_of_chapter in grouped:
@@ -158,8 +159,8 @@ def convert(
             report("synth", done, total)
         chapter_parts.append(parts)
 
-    # Отчёт пишется только когда есть о чём: пустой файл рядом с книгой
-    # приучает на него не смотреть.
+    # The report is written only when there is something to say: an empty file
+    # next to the book teaches you not to look at it.
     if cache.failures:
         (work_dir / "synth_report.json").write_text(
             json.dumps(cache.report(), ensure_ascii=False, indent=2), encoding="utf-8"
@@ -176,7 +177,11 @@ def convert(
         joined = chapters_dir / f"{index:04d}.wav"
         concat(parts, joined, engine.sample_rate)
         built.append(
-            ChapterAudio(chapter.title or f"Глава {index + 1}", joined, wav_duration(joined))
+            ChapterAudio(
+                chapter.title or f"{CHAPTER_LABEL[language]} {index + 1}",
+                joined,
+                wav_duration(joined),
+            )
         )
 
     name = _safe_name(document.title)

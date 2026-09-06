@@ -1,4 +1,4 @@
-"""Проверки статики. Регрессии в разметке ломают интерфейс молча."""
+"""Static file checks. A regression in the markup breaks the interface quietly."""
 
 import re
 from pathlib import Path
@@ -12,7 +12,7 @@ JS = (STATIC / "app.js").read_text(encoding="utf-8")
 
 
 def test_page_declares_english_by_default():
-    """Интерфейс по умолчанию английский, переключатель меняет lang на лету."""
+    """The interface starts in English, and the switch changes lang on the fly."""
     assert '<html lang="en">' in HTML
 
 
@@ -51,26 +51,33 @@ def test_only_supported_formats_are_offered():
 
 
 def test_no_external_resources_are_loaded():
-    """Инструмент локальный, внешние CDN ему не нужны и недоступны офлайн."""
-    assert "http://" not in HTML
-    assert "https://" not in HTML
+    """The tool is local: it needs no CDN and could not reach one offline.
+
+    Only tags that fetch something count. An anchor the reader clicks loads
+    nothing by itself, so the credit link in the footer is allowed.
+    """
+    loading = re.finditer(r"<(?:script|link|img|iframe|source|video|audio)\b[^>]*>", HTML)
+    external = [
+        tag.group(0) for tag in loading if "http://" in tag.group(0) or "https://" in tag.group(0)
+    ]
+    assert not external, external
 
 
-# --- стили ---
+# --- styles ---
 
-# Zinc из дизайн-системы намеренно чуть холодный: у #71717a разброс каналов 9.
-# Всё, что выше, это уже посторонний оттенок.
+# The zinc of the design system is deliberately a little cold: #71717a has a channel
+# spread of 9. Anything above that is already a foreign hue.
 ZINC_TOLERANCE = 12
 
 
 def test_palette_is_monochrome():
-    """Цветом обозначается только состояние, а не оформление."""
+    """Color marks state only, never decoration."""
     colors = set(re.findall(r"#[0-9a-fA-F]{6}", CSS))
     allowed_state = {"#15803d", "#22c55e", "#dc2626", "#ef4444", "#fee2e2", "#2a1213"}
     for color in colors - allowed_state:
         red, green, blue = (int(color[i : i + 2], 16) for i in (1, 3, 5))
         spread = max(red, green, blue) - min(red, green, blue)
-        assert spread <= ZINC_TOLERANCE, f"посторонний оттенок {color}, разброс {spread}"
+        assert spread <= ZINC_TOLERANCE, f"foreign hue {color}, spread {spread}"
 
 
 def test_no_gradients_or_glows():
@@ -97,7 +104,7 @@ def test_geist_is_the_font_with_a_system_fallback():
     assert "system-ui" in CSS
 
 
-# --- скрипт ---
+# --- the script ---
 
 
 def test_script_uses_the_documented_api():
@@ -106,7 +113,7 @@ def test_script_uses_the_documented_api():
 
 
 def test_script_reconnects_the_event_stream():
-    """Соединение SSE ограничено по времени, браузер обязан переподключиться."""
+    """The SSE connection is time limited, so the browser has to reconnect."""
     assert "EventSource" in JS
     assert "onerror" in JS
     assert "setTimeout(watch" in JS
@@ -117,14 +124,14 @@ def test_script_sends_edited_text_before_starting():
 
 
 @pytest.mark.parametrize("stage", ["extract", "synth", "assemble"])
-def test_every_pipeline_stage_has_a_russian_label(stage):
+def test_every_pipeline_stage_has_a_label(stage):
     assert stage in JS
 
 
 def test_progress_heading_does_not_duplicate_the_stage_line():
-    """Заголовок «Озвучиваю» над строкой «озвучиваю» это шум.
+    """A "Reading" heading above a "reading" line is noise.
 
-    Текст теперь в словарях, поэтому сверяем ключи, а не подписи.
+    The text now lives in the dictionaries, so we compare keys, not labels.
     """
     stage_keys = {"progress.extract", "progress.synth", "progress.assemble"}
     heading = re.search(r'<h2 id="h-progress" data-i18n="([^"]+)"', HTML).group(1)

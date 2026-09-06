@@ -1,9 +1,9 @@
-"""Порядок применения правил чистки и отчёт о том, что выброшено.
+"""The order the cleaning rules are applied in, and the report on what was dropped.
 
-Порядок важен. Сначала выбрасываем служебные блоки, пока у них ещё есть
-координаты и шрифт. Потом расставляем порядок чтения. Только после этого
-склеиваем обрывки: склейка стирает границы блоков, и колонтитул,
-приклеенный к абзацу, уже не выкинуть.
+The order matters. First we drop the service blocks, while they still have
+coordinates and a font. Then we set the reading order. Only after that do we
+join the fragments: joining erases block boundaries, and a running head glued
+to a paragraph can no longer be removed.
 """
 
 from dataclasses import dataclass, field, replace
@@ -21,19 +21,19 @@ from book2audio.clean.pdf_layout import (
 from book2audio.clean.text import clean_text
 from book2audio.extract.layout import RawBlock, RawPage, median_font_size
 
-RULE_NAMES_RU = {
-    "running_heads": "колонтитулы",
-    "page_numbers": "колонцифры",
-    "figure_captions": "подписи к рисункам",
-    "listings": "листинги и таблицы",
-    "numeric_captions": "числовые подписи",
-    "footnotes": "сноски",
+RULE_NAMES = {
+    "running_heads": "running heads",
+    "page_numbers": "page numbers",
+    "figure_captions": "figure captions",
+    "listings": "listings and tables",
+    "numeric_captions": "numeric captions",
+    "footnotes": "footnotes",
 }
 
 
 @dataclass
 class CleanReport:
-    """Что и каким правилом выброшено. Пишется в clean_report.json."""
+    """What was dropped and by which rule. Written into clean_report.json."""
 
     dropped: dict[str, int] = field(default_factory=dict)
     kept: int = 0
@@ -50,17 +50,15 @@ class CleanReport:
         }
 
     def summary(self) -> str:
-        """Строка для CLI. Интерфейс собирает свою из dropped."""
+        """A line for the CLI. The interface builds its own out of dropped."""
         if not self.chars_before:
-            return "чистить нечего"
+            return "nothing to clean"
         loss = 1 - self.chars_after / self.chars_before
         parts = ", ".join(
-            f"{RULE_NAMES_RU.get(name, name)} {count}"
-            for name, count in self.dropped.items()
-            if count
+            f"{RULE_NAMES.get(name, name)} {count}" for name, count in self.dropped.items() if count
         )
         tail = f": {parts}" if parts else ""
-        return f"чистка убрала {loss:.1%} символов{tail}"
+        return f"cleaning removed {loss:.1%} of the characters{tail}"
 
 
 def _count(pages: list[RawPage]) -> int:
@@ -68,7 +66,7 @@ def _count(pages: list[RawPage]) -> int:
 
 
 def clean_pages(pages: list[RawPage]) -> tuple[list[RawBlock], CleanReport]:
-    """Прогоняет страницы через все правила и отдаёт плоский список блоков."""
+    """Runs the pages through every rule and returns a flat list of blocks."""
     report = CleanReport()
     if not pages:
         return [], report
@@ -76,8 +74,8 @@ def clean_pages(pages: list[RawPage]) -> tuple[list[RawBlock], CleanReport]:
     report.chars_before = sum(p.char_count() for p in pages)
     median = median_font_size([b for p in pages for b in p.blocks] or [])
 
-    # Ключи, а не подписи: отчёт читают и CLI по-русски, и интерфейс
-    # на выбранном языке. Подпись выбирает тот, кто показывает.
+    # Keys, not labels: the report is read both by the CLI and by the interface
+    # in the chosen language. Whoever shows it picks the label.
     rules = [
         ("running_heads", drop_running_heads),
         ("page_numbers", drop_page_numbers),

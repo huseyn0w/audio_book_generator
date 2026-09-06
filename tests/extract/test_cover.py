@@ -1,4 +1,4 @@
-"""Обложка. m4b без картинки выглядит в плеере безымянной серой плиткой."""
+"""The cover. Without one, an m4b shows up in the player as a grey nameless tile."""
 
 import base64
 import zipfile
@@ -9,7 +9,7 @@ import pytest
 from book2audio.extract.epub import EpubExtractor
 from book2audio.extract.fb2 import Fb2Extractor
 
-# Самый маленький валидный JPEG-заголовок. Содержимое неважно, важен факт.
+# The smallest valid JPEG header. The content does not matter, its presence does.
 PIXEL = base64.b64decode(
     "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
     "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAA"
@@ -45,7 +45,7 @@ def write_fb2(path: Path, with_cover: bool) -> Path:
 
 
 def write_epub(path: Path, with_cover: bool) -> Path:
-    """Минимальный EPUB 2: обложка помечена через <meta name="cover">."""
+    """A minimal EPUB 2: the cover is marked with <meta name="cover">."""
     meta = '<meta name="cover" content="cover-image"/>' if with_cover else ""
     manifest = (
         '<item id="cover-image" href="cover.jpg" media-type="image/jpeg"/>' if with_cover else ""
@@ -123,7 +123,7 @@ def test_pdf_document_has_no_cover_field_set(tmp_path):
 
 @pytest.mark.parametrize("name", ["book_ru.fb2", "book_ru.epub"])
 def test_real_fixtures_still_extract(tmp_path, name):
-    """Обложки в вырезках может не быть, но извлечение не должно ломаться."""
+    """A clipping may have no cover, but extraction must not break."""
     fixtures = Path(__file__).parent.parent / "fixtures"
     extractor = Fb2Extractor() if name.endswith(".fb2") else EpubExtractor()
     document = extractor.extract(fixtures / name)

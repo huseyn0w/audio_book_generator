@@ -1,20 +1,19 @@
-"""Правка текста, не требующая знания вёрстки.
+"""Text fixes that need no knowledge of the typesetting.
 
-Годится для любого формата, поэтому в фазе 3 переиспользуется
-для EPUB и FB2 как есть.
+It suits any format, so phase 3 reuses it for EPUB and FB2 as it is.
 """
 
 import re
 
-# Буква, дефис, пробелы, строчная буква: это перенос, дефис убираем.
+# Letter, hyphen, spaces, lowercase letter: that is a line break hyphen, drop it.
 HYPHENATED = re.compile(r"(\w)-\s+([a-zа-яё])")
 
-# То же, но после дефиса заглавная: это составное слово вроде «Красно-Белый»,
-# разорванное переносом. Убираем только пробел, дефис оставляем.
+# The same, but an uppercase letter after the hyphen: a compound word broken
+# across lines. We remove only the space and keep the hyphen.
 HYPHENATED_COMPOUND = re.compile(r"(\w)-\s+([A-ZА-ЯЁ])")
 
-# Кавычки всех видов приводим к ёлочкам: движки читают их одинаково,
-# а разнобой мешает сравнивать тексты и ловить дубли.
+# Quotes of every kind become guillemets: the engines read them the same way,
+# and the mixture gets in the way of comparing texts and catching duplicates.
 OPENING_QUOTES = ('"', "“", "„", "‟", "«")
 CLOSING_QUOTES = ('"', "”", "‘", "”", "»")
 
@@ -24,7 +23,7 @@ WHITESPACE = re.compile(r"[ \t   \r\n]+")
 
 
 def join_hyphenated(text: str) -> str:
-    """Склеивает слово, разорванное переносом на границе строки."""
+    """Rejoins a word broken by a hyphen at a line boundary."""
     previous = None
     while previous != text:
         previous = text
@@ -34,7 +33,7 @@ def join_hyphenated(text: str) -> str:
 
 
 def normalize_quotes(text: str) -> str:
-    """Сводит кавычки к ёлочкам, апострофы к прямому."""
+    """Brings quotes to guillemets and apostrophes to the straight one."""
     for mark in APOSTROPHES:
         text = text.replace(mark, "'")
     result: list[str] = []
@@ -49,26 +48,26 @@ def normalize_quotes(text: str) -> str:
 
 
 def squeeze_spaces(text: str) -> str:
-    """Схлопывает пробельные последовательности и убирает края."""
+    """Collapses whitespace runs and trims the edges."""
     return WHITESPACE.sub(" ", text).strip()
 
 
-# Ноль вплотную к скобке, дальше возможен пробел от вёрстки, затем латинская
-# буква или цифра. Пробел ПЕРЕД скобкой значит настоящий ноль, его не трогаем.
+# A zero right against a bracket, then a possible typesetting space, then a
+# Latin letter or digit. A space BEFORE the bracket means a real zero, left alone.
 BIG_O = re.compile(r"0\(\s*([A-Za-z0-9])")
 
 
 def restore_big_o(text: str) -> str:
-    """Возвращает букву O в оценки сложности, где извлечение дало ноль.
+    """Puts the letter O back into complexity bounds where extraction gave a zero.
 
-    В технических книгах шрифт иногда отображает O на глиф нуля, и вслух
-    это читается «ноль от эн». Условие узкое: ноль, сразу скобка, сразу
-    латинская буква или цифра. Замер на шести фикстурах: 15 попаданий в английской
-    технической книге, ноль ложных срабатываний в остальных пяти.
+    In technical books the font sometimes maps O onto the zero glyph, and read
+    aloud that becomes "zero of n". The condition is narrow: a zero, then a
+    bracket, then a Latin letter or digit. Measured on six fixtures: 15 hits in
+    the English technical book, no false positives in the other five.
     """
     return BIG_O.sub(r"O(\1", text)
 
 
 def clean_text(text: str) -> str:
-    """Полная правка строки. Повторное применение ничего не меняет."""
+    """The full fix for a line. Applying it again changes nothing."""
     return squeeze_spaces(normalize_quotes(join_hyphenated(restore_big_o(text))))

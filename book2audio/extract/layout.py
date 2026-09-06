@@ -1,8 +1,8 @@
-"""Сырая раскладка страницы: текст вместе с размером шрифта и координатами.
+"""The raw page layout: text together with font size and coordinates.
 
-Промежуточный слой между PyMuPDF и Document. Эвристики чистки в фазе 2
-работают именно с ним: без размера шрифта и bbox колонтитул от абзаца
-не отличить.
+An intermediate layer between PyMuPDF and Document. The phase 2 cleaning
+heuristics work on this: without font size and bbox you cannot tell a
+running head from a paragraph.
 """
 
 import statistics
@@ -19,7 +19,7 @@ class RawBlock:
 
     def __post_init__(self) -> None:
         if not self.text.strip():
-            raise ValueError("пустой текст блока")
+            raise ValueError("empty block text")
 
     @property
     def top(self) -> float:
@@ -42,12 +42,12 @@ class RawPage:
 
 
 def median_font_size(blocks: list[RawBlock]) -> float:
-    """Медианный размер шрифта, взвешенный по длине текста.
+    """Median font size, weighted by text length.
 
-    Взвешивание нужно, чтобы редкие крупные заголовки не сдвигали опорную
-    величину: от неё зависят все эвристики фазы 2.
+    The weighting keeps rare large headings from moving the baseline that
+    every phase 2 heuristic depends on.
     """
     if not blocks:
-        raise ValueError("нет блоков для расчёта медианы")
+        raise ValueError("no blocks to take a median from")
     weighted = [b.font_size for b in blocks for _ in range(len(b.text))]
     return statistics.median(weighted)

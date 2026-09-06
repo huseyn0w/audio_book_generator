@@ -1,4 +1,4 @@
-"""Образец голоса. Выбирать диктора по имени в выпадающем списке бессмысленно."""
+"""The voice sample. Picking a narrator by name in a dropdown makes no sense."""
 
 import wave
 from io import BytesIO
@@ -37,7 +37,7 @@ def test_sample_rejects_unknown_language(client):
 
 
 def test_sample_is_synthesized_once(client, tmp_path):
-    """Silero на этой фразе тратит секунду. Второй раз ждать незачем."""
+    """Silero spends a second on this phrase. There is no reason to wait twice."""
     client.get("/api/sample", params={"language": "ru", "voice": "fake_a"})
     files = sorted((tmp_path / "samples").rglob("*.wav"))
     assert len(files) == 1
@@ -59,7 +59,7 @@ def test_frontend_has_a_listen_button():
     assert "/api/sample" in (static / "app.js").read_text(encoding="utf-8")
 
 
-# --- предупреждение, оценка и отчёт в интерфейсе ---
+# --- the warning, the estimate and the report in the interface ---
 
 
 def _static(name: str) -> str:
@@ -86,7 +86,7 @@ def test_upload_screen_has_a_page_range_field():
 
 
 def test_synthesis_time_agrees_with_the_sentence():
-    """Русская строка читается как «синтез займёт около ...», отсюда падеж."""
+    """The Russian line reads «синтез займёт около ...», hence the case."""
     strings = _static("i18n.js")
     assert '"review.underMinute": "минуты"' in strings
     assert '"review.underMinute": "минуту"' not in strings
@@ -94,6 +94,6 @@ def test_synthesis_time_agrees_with_the_sentence():
 
 
 def test_failed_screen_offers_a_retry():
-    """Падение на сборке лечится повтором, а не новой загрузкой книги."""
+    """A failure during assembly is cured by a retry, not by uploading the book again."""
     assert 'id="retry-synth"' in _static("index.html")
     assert "retry-synth" in _static("app.js")

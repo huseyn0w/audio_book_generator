@@ -24,7 +24,7 @@ def texts(pages):
     return [b.text for p in pages for b in p.blocks]
 
 
-# --- номера страниц ---
+# --- page numbers ---
 
 
 def test_bare_number_at_the_bottom_is_dropped():
@@ -43,7 +43,7 @@ def test_roman_numeral_at_the_edge_is_dropped():
 
 
 def test_number_in_the_middle_of_the_page_survives():
-    """Это может быть год или номер в списке, а не колонцифра."""
+    """This may be a year or a list number rather than a page number."""
     pages = [make_page(1, [blk("1861", 400)])]
     assert texts(drop_page_numbers(pages)) == ["1861"]
 
@@ -53,7 +53,7 @@ def test_number_with_words_survives():
     assert texts(drop_page_numbers(pages)) == ["Глава 42"]
 
 
-# --- колонтитулы ---
+# --- running heads ---
 
 
 def test_normalize_replaces_digits_for_matching():
@@ -77,7 +77,7 @@ def test_head_on_few_pages_survives():
 
 
 def test_only_edge_blocks_are_considered_running_heads():
-    """Одинаковая фраза в середине страницы это не колонтитул."""
+    """The same phrase in the middle of a page is not a running head."""
     pages = [
         make_page(n, [blk(f"Верх {n}", 20), blk("Повторяющаяся фраза", 400), blk(f"Низ {n}", 770)])
         for n in range(1, 11)
@@ -89,16 +89,16 @@ def test_running_share_threshold_is_documented():
     assert 0.0 < RUNNING_SHARE < 1.0
 
 
-# --- предохранитель ---
+# --- the safety catch ---
 
 
 def test_rule_backs_off_when_it_would_eat_most_of_a_page():
-    """Лучше прочитать колонтитул, чем потерять страницу текста."""
+    """Better to read a running head than to lose a page of text."""
     pages = [make_page(n, [blk("Повтор", 20), blk("Повтор", 770)]) for n in range(1, 11)]
     assert len(texts(drop_running_heads(pages))) == 20
 
 
-# --- реальные данные ---
+# --- real data ---
 
 
 def test_running_heads_are_found_in_the_typeset_fixture():
@@ -121,7 +121,7 @@ def test_page_numbers_are_found_in_a_real_book():
 
 
 def test_dates_in_the_page_body_are_never_dropped():
-    """В учебнике истории 311 числовых блоков, и это даты, а не колонцифры.
+    """The history textbook has 311 numeric blocks, and they are dates, not page numbers.
 
     Требование края страницы это единственное, что отделяет одно от другого.
     """

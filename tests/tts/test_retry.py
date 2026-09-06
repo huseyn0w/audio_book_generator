@@ -1,4 +1,4 @@
-"""Один сорвавшийся чанк не должен стоить всей книги."""
+"""One failed chunk must not cost the whole book."""
 
 import wave
 from pathlib import Path
@@ -10,7 +10,7 @@ from book2audio.tts.fake import FakeEngine
 
 
 class FlakyEngine(FakeEngine):
-    """Падает заданное число раз, потом синтезирует нормально."""
+    """Fails a given number of times, then synthesizes normally."""
 
     def __init__(self, failures: int) -> None:
         self.left = failures
@@ -55,15 +55,15 @@ def test_silence_keeps_engine_sample_rate(tmp_path):
 
 
 def test_bad_voice_is_not_retried(tmp_path):
-    """Неизвестный голос от повтора не чинится, а тишина скрыла бы ошибку."""
+    """An unknown voice is not fixed by a retry, and silence would hide the error."""
     cache = SynthCache(tmp_path)
-    with pytest.raises(ValueError, match="неизвестный голос"):
+    with pytest.raises(ValueError, match="unknown voice"):
         cache.synth_or_silence(FakeEngine(), "привет", "нет такого")
     assert cache.failures == []
 
 
 def test_failed_chunk_is_not_cached_as_silence(tmp_path):
-    """Тишина лежит отдельно: после починки движка книга должна пересинтезироваться."""
+    """Silence sits apart: once the engine is fixed the book has to synthesize again."""
     cache = SynthCache(tmp_path)
     cache.synth_or_silence(FlakyEngine(failures=99), "привет", "fake_a")
     assert not cache.path("привет", "fake_a", FakeEngine()).exists()
@@ -80,7 +80,7 @@ def test_report_lists_failed_chunks(tmp_path):
 
 
 class ValueErrorEngine(FakeEngine):
-    """Движок кидает голый ValueError, как настоящий Silero на плохом куске."""
+    """The engine throws a bare ValueError, like the real Silero on a bad piece."""
 
     def __init__(self) -> None:
         self.calls = 0
@@ -91,7 +91,7 @@ class ValueErrorEngine(FakeEngine):
 
 
 def test_value_error_from_the_engine_is_retried(tmp_path):
-    """Silero кидает голый ValueError на куске, который не смог разобрать.
+    """Silero throws a bare ValueError on a piece it could not parse.
 
     Раньше он пролетал мимо повторов и ронял всю книгу на 1846 кусков.
     """
@@ -104,16 +104,16 @@ def test_value_error_from_the_engine_is_retried(tmp_path):
 
 
 def test_unknown_voice_is_still_rejected_immediately(tmp_path):
-    """Голос проверяем сами, до движка: тишина вместо всей книги это не выход."""
+    """We check the voice ourselves, before the engine: silence for a whole book is no answer."""
     engine = ValueErrorEngine()
     cache = SynthCache(tmp_path)
-    with pytest.raises(ValueError, match="неизвестный голос"):
+    with pytest.raises(ValueError, match="unknown voice"):
         cache.synth_or_silence(engine, "текст", "нет такого")
     assert engine.calls == 0
 
 
 def test_empty_text_is_rejected_without_calling_the_engine(tmp_path):
     engine = ValueErrorEngine()
-    with pytest.raises(ValueError, match="пустой текст"):
+    with pytest.raises(ValueError, match="empty text"):
         SynthCache(tmp_path).synth_or_silence(engine, "   ", "fake_a")
     assert engine.calls == 0

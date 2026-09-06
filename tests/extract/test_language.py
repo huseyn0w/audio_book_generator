@@ -1,4 +1,4 @@
-"""Язык нормализации должен совпадать с языком голоса.
+"""The normalization language has to match the voice language.
 
 Английский PDF, нормализованный русскими правилами, читается вслух так:
 «Chapter четырнадцать», «ноль( s log s)». Тесты держат это закрытым.
@@ -61,7 +61,7 @@ def test_pick_extractor_passes_the_language_through(suffix):
 
 
 def test_user_language_wins_over_epub_metadata():
-    """Пользователь выбирает голос, и текст обязан быть нормализован под него."""
+    """The user picks the voice, and the text has to be normalized for it."""
     document = EpubExtractor(language="en").extract(FIXTURES / "book_ru.epub")
     assert document.language == "en"
 

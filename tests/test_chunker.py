@@ -20,7 +20,7 @@ def chapter(title, *texts):
 
 
 def body(chunks):
-    """Чанки без объявления заголовка главы. Само объявление проверяется отдельно."""
+    """Chunks without the chapter heading announcement, which is tested separately."""
     return chunks[1:]
 
 
@@ -31,7 +31,7 @@ def test_chunk_carries_text_and_pause():
 
 
 def test_chunk_rejects_negative_pause():
-    with pytest.raises(ValueError, match="пауза"):
+    with pytest.raises(ValueError, match="pause"):
         Chunk(text="привет", pause_after=-1.0)
 
 
@@ -95,7 +95,7 @@ def test_english_document_is_segmented_too():
     assert len(chunks) >= 2
 
 
-# --- разрезание слишком длинного предложения ---
+# --- cutting a sentence that is too long ---
 
 
 def test_split_long_sentence_prefers_semicolons():
@@ -120,14 +120,14 @@ def test_split_long_sentence_falls_back_to_words():
 
 
 def test_split_long_sentence_never_loses_a_word_without_separators():
-    """Одно слово длиннее лимита режем как есть: лучше кривая пауза, чем падение."""
+    """One word past the limit is cut as it is: a crooked pause beats a failure."""
     parts = split_long_sentence("я" * 250, limit=100)
     assert all(len(p) <= 100 for p in parts)
     assert "".join(parts) == "я" * 250
 
 
 def test_chapter_title_is_announced_once_end_to_end():
-    """На реальной книге заголовок дублировался: блок был paragraph, а не heading."""
+    """In a real book the heading doubled: the block was paragraph, not heading."""
     ch = Chapter(
         title="Глава 1 Императив роста",
         blocks=[
@@ -139,11 +139,11 @@ def test_chapter_title_is_announced_once_end_to_end():
     assert texts.count("Глава 1 Императив роста") == 1
 
 
-# --- куски, в которых нечего произносить ---
+# --- pieces with nothing to pronounce ---
 
 
 def test_scene_separator_is_not_a_chunk():
-    """«* * *» это разделитель сцен. Букв нет, движку он не по зубам."""
+    """«* * *» is a scene break. No letters, and the engine cannot chew it."""
     doc = Document(
         "Книга",
         None,
@@ -166,6 +166,6 @@ def test_scene_separator_is_not_a_chunk():
 
 
 def test_digits_alone_still_count_as_speakable():
-    """«1861» произносится, в отличие от «* * *»."""
+    """«1861» is pronounceable, unlike «* * *»."""
     doc = Document("Книга", None, "ru", [Chapter("Глава", [Block(kind="paragraph", text="1861")])])
     assert [c.text for c in chunk_document(doc, "ru")] == ["Глава", "1861"]

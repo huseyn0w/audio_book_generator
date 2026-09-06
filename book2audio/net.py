@@ -1,4 +1,4 @@
-"""Сетевые мелочи, нужные при первой загрузке весов моделей."""
+"""Small network details needed the first time model weights are downloaded."""
 
 import os
 
@@ -6,11 +6,11 @@ import certifi
 
 
 def ensure_ssl_certs() -> str:
-    """Прописывает корневые сертификаты для stdlib-ssl и возвращает путь к ним.
+    """Points stdlib ssl at the root certificates and returns their path.
 
-    Standalone-сборка Python из uv не видит хранилище сертификатов macOS,
-    и torch.hub падает на CERTIFICATE_VERIFY_FAILED. Значения, заданные
-    снаружи, не трогаем.
+    The standalone Python build from uv cannot see the macOS certificate
+    store, so torch.hub fails with CERTIFICATE_VERIFY_FAILED. Values set
+    from outside are left alone.
     """
     path = certifi.where()
     os.environ.setdefault("SSL_CERT_FILE", path)

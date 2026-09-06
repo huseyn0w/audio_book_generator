@@ -27,17 +27,17 @@ def test_silero_lists_prefixed_voices_for_cis_model():
 
 
 def test_silero_rejects_unknown_model_id():
-    with pytest.raises(ValueError, match="неизвестная модель"):
+    with pytest.raises(ValueError, match="unknown model"):
         SileroEngine(model_id="v9_ru")
 
 
 def test_silero_rejects_unsupported_sample_rate():
-    with pytest.raises(ValueError, match="частоту"):
+    with pytest.raises(ValueError, match="sample rate"):
         SileroEngine(sample_rate=44100)
 
 
 def test_silero_rejects_unknown_voice(tmp_path):
-    with pytest.raises(ValueError, match="неизвестный голос"):
+    with pytest.raises(ValueError, match="unknown voice"):
         SileroEngine().synth("привет", "nope", tmp_path / "a.wav")
 
 
@@ -55,7 +55,7 @@ def test_silero_does_not_load_weights_in_constructor(monkeypatch):
 
 
 def test_silero_loads_repo_without_asking_stdin(monkeypatch):
-    """torch.hub спрашивает подтверждение через input(). В вебе это вешает процесс."""
+    """torch.hub asks for confirmation through input(). On the web that hangs the process."""
     captured = {}
 
     class DummyModel:
@@ -109,7 +109,7 @@ def test_silero_synthesizes_russian_text(tmp_path):
 @pytest.mark.slow
 @pytest.mark.parametrize("model_id", ["v5_5_ru", "v5_cis_base"])
 def test_hardcoded_voice_list_matches_model(model_id):
-    """VOICES захардкожен, чтобы voices() не тянул веса. Тут сверяем с моделью."""
+    """VOICES is hardcoded so voices() pulls no weights. Here we check it against the model."""
     from book2audio.tts.silero import VOICES
 
     engine = SileroEngine(model_id=model_id)
@@ -118,11 +118,11 @@ def test_hardcoded_voice_list_matches_model(model_id):
     assert VOICES[model_id] == expected
 
 
-# --- латиница ---
+# --- latin script ---
 
 
 def test_silero_transliterates_latin_before_synthesis():
-    """В таблице символов русской модели латиницы нет, она роняет apply_tts."""
+    """The Russian model character table has no Latin, and it makes apply_tts fail."""
     prepared = SileroEngine().prepare("Специалисты E*Trade Bank и Sony Bank")
     assert not any("a" <= c.lower() <= "z" for c in prepared)
     assert "сони" in prepared
@@ -134,14 +134,14 @@ def test_silero_keeps_russian_text_as_is():
 
 
 def test_silero_rejects_text_with_nothing_to_say():
-    """«* * *» и «Annotation» после подготовки пусты, синтезировать нечего."""
+    """«* * *» and "Annotation" come out empty after preparation, nothing to synthesize."""
     engine = SileroEngine()
     assert engine.prepare("* * *").strip(" *") == ""
 
 
 @pytest.mark.slow
 def test_silero_survives_a_chunk_that_used_to_crash_it(tmp_path):
-    """Регрессия: KeyError 'e' на «E*Trade Bank» роняла всю книгу."""
+    """A regression: KeyError 'e' on "E*Trade Bank" used to kill the whole book."""
     engine = SileroEngine()
     out = tmp_path / "latin.wav"
     engine.synth(

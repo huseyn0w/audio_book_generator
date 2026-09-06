@@ -28,7 +28,7 @@ def test_fb2_produces_chapters_with_text():
 
 
 def test_fb2_skips_the_notes_body():
-    """202 примечания Кристенсена вслух читать нельзя."""
+    """The 202 notes in the Christensen book must not be read aloud."""
     doc = Fb2Extractor().extract(BOOK)
     text = " ".join(b.text for c in doc.chapters for b in c.blocks)
     assert "Черный ящик" not in text or doc.char_count() < 400_000
@@ -54,7 +54,7 @@ def test_fb2_flattens_nested_sections_into_chapters():
 
 
 def test_fb2_blocks_have_no_page_numbers():
-    """В FB2 страниц нет, и притворяться, что есть, вредно."""
+    """FB2 has no pages, and pretending it does is harmful."""
     doc = Fb2Extractor().extract(BOOK)
     assert all(b.page is None for c in doc.chapters for b in c.blocks)
 
@@ -93,7 +93,7 @@ def test_fb2_recovers_from_broken_xml(tmp_path):
 def test_fb2_rejects_a_file_that_is_not_fb2(tmp_path):
     not_fb2 = tmp_path / "x.fb2"
     not_fb2.write_text("<html><body>привет</body></html>", encoding="utf-8")
-    with pytest.raises(ValueError, match="не похож на FB2"):
+    with pytest.raises(ValueError, match="does not look like FB2"):
         Fb2Extractor().extract(not_fb2)
 
 
@@ -113,11 +113,11 @@ def test_flatten_sections_keeps_document_order():
     assert [c.title for c in chapters] == ["Раз", "Раз-два", "Два"]
 
 
-# --- цитаты это содержание ---
+# --- quotes are content ---
 
 
 def test_cite_blocks_are_read_as_content():
-    """В <cite> у Кристенсена лежат резюме глав по 400-1400 символов.
+    """In the Christensen book <cite> holds chapter summaries of 400-1400 characters.
 
     Найдено сверкой объёмов между FB2 и EPUB одной книги.
     """
@@ -135,7 +135,7 @@ def test_cite_blocks_are_read_as_content():
 
 
 def test_signature_lines_are_skipped():
-    """<text-author> это подпись под цитатой, а не текст книги."""
+    """<text-author> is the attribution under a quote, not the book text."""
     from lxml import etree
 
     xml = """<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">

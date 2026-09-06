@@ -1,4 +1,4 @@
-"""Проверки до запуска: про отсутствие ffmpeg надо узнавать сразу."""
+"""Checks before the run: a missing ffmpeg has to surface at once."""
 
 import shutil
 
@@ -25,7 +25,7 @@ def all_tools(monkeypatch):
 
 
 def test_russian_does_not_need_espeak(monkeypatch):
-    """Silero фонемизирует сам. Требовать espeak для русской книги неверно."""
+    """Silero phonemizes on its own. Demanding espeak for a Russian book is wrong."""
     monkeypatch.setattr(shutil, "which", lambda name: None if name == "espeak-ng" else "/bin/x")
     assert missing_tools("ru") == []
     assert missing_tools("en") == ["espeak-ng"]
@@ -62,10 +62,10 @@ def test_check_space_passes_with_room(tmp_path):
 
 def test_check_space_reports_both_numbers(tmp_path, monkeypatch):
     monkeypatch.setattr("book2audio.preflight.free_bytes", lambda path: 1_000_000)
-    with pytest.raises(NotEnoughSpace, match="нужно"):
+    with pytest.raises(NotEnoughSpace, match=r"needed.*free"):
         check_space(tmp_path, chars=10_000_000)
 
 
 def test_check_space_looks_at_the_nearest_existing_parent(tmp_path):
-    """Рабочей папки ещё нет: место надо мерить у того, что есть."""
+    """The work folder does not exist yet: measure space on what does."""
     check_space(tmp_path / "work" / "job" / "cache", chars=1000)

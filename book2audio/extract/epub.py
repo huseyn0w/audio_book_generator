@@ -1,8 +1,8 @@
-"""Извлечение EPUB.
+"""EPUB extraction.
 
-Главы берутся из оглавления, а не из заголовков h1-h3: в реальных книгах
-их часто нет вовсе, а spine разбит на сотни файлов по несколько абзацев.
-Оглавление ссылается на якорь внутри файла, поэтому резать надо по якорю.
+Chapters come from the table of contents rather than h1-h3 headings: real books
+often have none at all, and the spine is split into hundreds of files of a few
+paragraphs. The contents point at an anchor inside a file, so we cut on anchors.
 """
 
 import re
@@ -16,23 +16,23 @@ from ebooklib import epub
 
 from book2audio.clean.speech import normalize_for_speech
 from book2audio.clean.text import clean_text
-from book2audio.models import Block, Chapter, Document, Selection
+from book2audio.models import OPENING_TITLE, Block, Chapter, Document, Selection
 
 TEXT_TAGS = ("p", "h1", "h2", "h3", "h4", "blockquote")
 
 SKIPPED_TAGS = ("table", "figure", "figcaption", "sup", "script", "style")
 
-# Конвертеры fb2 в epub раскладывают сноски отдельными файлами, каждый
-# начинается с голого номера, и в оглавление они не попадают. У Кристенсена
-# это 202 файла и 162 тысячи символов: три часа обрывков в конце книги.
+# fb2 to epub converters lay endnotes out as separate files, each starting with a
+# bare number, and they never reach the contents. In the Christensen book that is
+# 202 files and 162 thousand characters: three hours of scraps at the end.
 BARE_NUMBER = re.compile(r"\d{1,4}")
 
 
 def looks_like_endnote(paragraphs: list[str], in_toc: bool) -> bool:
-    """Документ spine это концевая сноска, а не глава.
+    """This spine document is an endnote, not a chapter.
 
-    Оба условия обязательны. Документ вне оглавления может быть эпилогом,
-    а абзац из одного числа может встретиться и в обычной главе.
+    Both conditions are required. A document outside the contents may be an
+    epilogue, and a paragraph of one number can appear in an ordinary chapter.
     """
     if in_toc or not paragraphs:
         return False
@@ -41,7 +41,7 @@ def looks_like_endnote(paragraphs: list[str], in_toc: bool) -> bool:
 
 @dataclass(frozen=True)
 class Piece:
-    """Абзац вместе с якорями, встреченными до него. Нужен, чтобы резать главы."""
+    """A paragraph with the anchors seen before it. Needed to cut the chapters."""
 
     text: str
     document: str
@@ -50,7 +50,7 @@ class Piece:
 
 
 def flatten_toc(entries) -> list[tuple[str, str, str]]:
-    """Разворачивает вложенное оглавление в плоский список в порядке чтения."""
+    """Flattens a nested table of contents into reading order."""
     flat: list[tuple[str, str, str]] = []
 
     def walk(items) -> None:
@@ -68,7 +68,7 @@ def flatten_toc(entries) -> list[tuple[str, str, str]]:
 
 
 def _pieces_of(item, name: str) -> list[Piece]:
-    """Разбирает один документ spine в абзацы, помня встреченные якоря."""
+    """Parses one spine document into paragraphs, remembering the anchors seen."""
     soup = BeautifulSoup(item.get_content(), "xml")
     for tag in soup.find_all(SKIPPED_TAGS):
         tag.decompose()
@@ -96,8 +96,10 @@ def _pieces_of(item, name: str) -> list[Piece]:
     return pieces
 
 
-def _cut_into_chapters(pieces: list[Piece], toc: list[tuple[str, str, str]]) -> list[Chapter]:
-    """Режет поток абзацев по точкам оглавления."""
+def _cut_into_chapters(
+    pieces: list[Piece], toc: list[tuple[str, str, str]], language: str = "ru"
+) -> list[Chapter]:
+    """Cuts the paragraph stream at the table of contents entries."""
     marks: list[tuple[int, str]] = []
     search_from = 0
     for title, document, anchor in toc:
@@ -118,7 +120,7 @@ def _cut_into_chapters(pieces: list[Piece], toc: list[tuple[str, str, str]]) -> 
         return (
             [
                 Chapter(
-                    title="Начало",
+                    title=OPENING_TITLE[language],
                     blocks=[Block(kind="paragraph", text=p.text) for p in pieces],
                 )
             ]
@@ -131,7 +133,7 @@ def _cut_into_chapters(pieces: list[Piece], toc: list[tuple[str, str, str]]) -> 
     if head:
         chapters.append(
             Chapter(
-                title="Начало",
+                title=OPENING_TITLE[language],
                 blocks=[Block(kind="paragraph", text=p.text) for p in head],
             )
         )
@@ -150,11 +152,11 @@ def _cut_into_chapters(pieces: list[Piece], toc: list[tuple[str, str, str]]) -> 
 
 
 def _cover(book) -> bytes | None:
-    """Обложка EPUB. Три способа пометить её, в порядке надёжности.
+    """The EPUB cover. Three ways to mark it, in order of reliability.
 
-    EPUB 2 кладёт <meta name="cover" content="id"> в OPF, EPUB 3 помечает
-    сам файл свойством cover-image. Последний вариант это догадка по имени:
-    так делают конвертеры, которые не соблюдают ни одну из спецификаций.
+    EPUB 2 puts <meta name="cover" content="id"> in the OPF, EPUB 3 marks the file
+    itself with the cover-image property. The last one is a guess from the name:
+    that is what converters do when they follow neither specification.
     """
     by_id = {item.get_id(): item for item in book.get_items()}
 
@@ -176,14 +178,14 @@ def _cover(book) -> bytes | None:
 class EpubExtractor:
     def __init__(self, clean: bool = True, language: str | None = None) -> None:
         self.clean = clean
-        # Явный язык важнее метаданных: он же выбирает голос, а метаданные
-        # в книгах после конвертеров врут регулярно.
+        # An explicit language wins over the metadata: it also picks the voice, and
+        # metadata in converted books lies regularly.
         self.language = language
         self.report = None
 
     def extract(self, path: Path, selection: Selection | None = None) -> Document:
         if not zipfile.is_zipfile(path):
-            raise ValueError(f"файл не похож на EPUB: {path.name}")
+            raise ValueError(f"this file does not look like EPUB: {path.name}")
         book = epub.read_epub(str(path))
 
         by_id = {item.get_id(): item for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT)}
@@ -201,11 +203,6 @@ class EpubExtractor:
                 continue
             pieces.extend(found)
 
-        chapters = _cut_into_chapters(pieces, toc)
-        if selection and selection.chapters:
-            wanted = [i for i in selection.chapters if 0 <= i < len(chapters)]
-            chapters = [chapters[i] for i in wanted]
-
         def first(key: str) -> str:
             values = book.get_metadata("DC", key)
             return values[0][0] if values else ""
@@ -213,6 +210,11 @@ class EpubExtractor:
         language = self.language or (first("language") or "ru").lower()[:2]
         if language not in {"ru", "en"}:
             language = "ru"
+
+        chapters = _cut_into_chapters(pieces, toc, language)
+        if selection and selection.chapters:
+            wanted = [i for i in selection.chapters if 0 <= i < len(chapters)]
+            chapters = [chapters[i] for i in wanted]
 
         if self.clean:
             for chapter in chapters:

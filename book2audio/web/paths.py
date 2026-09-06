@@ -1,14 +1,14 @@
-"""Папка сохранения, пришедшая из браузера.
+"""The save folder that came from the browser.
 
-Флаг --copy-to задаёт папку на весь запуск сервера. Здесь то же самое,
-но для одной книги: художественное на телефон, рабочее на диск.
+The --copy-to flag sets a folder for the whole server run. This is the same
+thing for a single book: fiction to the phone, work books to the disk.
 """
 
 from pathlib import Path
 
-# Папки, которые предлагаются в интерфейсе. Полный путь набирать руками
-# неудобно, а этих трёх хватает почти всегда.
-# Ключ, а не подпись: подпись выбирает интерфейс на своём языке.
+# The folders offered in the interface. Typing a full path by hand is
+# awkward, and these three cover almost every case.
+# A key, not a label: the interface picks the label in its own language.
 SUGGESTED = (
     ("desktop", "Desktop/Audiobooks"),
     ("downloads", "Downloads/Audiobooks"),
@@ -17,25 +17,25 @@ SUGGESTED = (
 
 
 class BadDestination(ValueError):
-    """Путь не годится: относительный, или там лежит файл."""
+    """The path will not do: it is relative, or a file sits there."""
 
 
 def suggestions() -> list[dict]:
-    """Готовые варианты папок с полными путями."""
+    """The ready-made folder options with full paths."""
     home = Path.home()
     return [{"key": key, "path": str(home / tail)} for key, tail in SUGGESTED]
 
 
 def resolve_destination(value: str | None) -> Path | None:
-    """Путь из формы в проверенную папку. Пусто значит папку сервера."""
+    """Turns the path from the form into a checked folder. Empty means the server folder."""
     if not value or not value.strip():
         return None
 
     path = Path(value.strip()).expanduser()
     if not path.is_absolute():
         raise BadDestination(
-            f"нужен полный путь, например ~/Desktop/Audiobooks, а не {value.strip()!r}"
+            f"a full path is needed, for example ~/Desktop/Audiobooks, not {value.strip()!r}"
         )
     if path.exists() and not path.is_dir():
-        raise BadDestination(f"это не папка, а файл: {path}")
+        raise BadDestination(f"that is a file, not a folder: {path}")
     return path

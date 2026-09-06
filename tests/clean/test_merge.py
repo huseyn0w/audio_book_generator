@@ -40,13 +40,13 @@ def test_merge_keeps_the_first_block_page_and_font():
 
 
 def test_merge_stops_at_a_font_size_change():
-    """Смена кегля означает смену роли блока, склеивать нельзя."""
+    """A font size change means a change of role, so the blocks must not join."""
     merged = merge_continuations([blk("Обычный текст", size=13.0), blk("Заголовок", size=20.0)])
     assert len(merged) == 2
 
 
 def test_merge_stops_before_exceeding_the_length_cap():
-    """Сломанная вёрстка иначе склеит всю главу в один блок."""
+    """Broken typesetting would otherwise pull a whole chapter into one block."""
     pieces = [blk("а" * 500) for _ in range(20)]
     merged = merge_continuations(pieces)
     assert all(len(b.text) <= MERGED_MAX_CHARS for b in merged)

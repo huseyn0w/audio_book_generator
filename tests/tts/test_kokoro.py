@@ -21,12 +21,12 @@ def test_kokoro_lists_american_and_british_voices():
 
 
 def test_kokoro_rejects_unknown_voice(tmp_path):
-    with pytest.raises(ValueError, match="неизвестный голос"):
+    with pytest.raises(ValueError, match="unknown voice"):
         KokoroEngine().synth("hello", "nope", tmp_path / "a.wav")
 
 
 def test_kokoro_rejects_empty_text(tmp_path):
-    with pytest.raises(ValueError, match="пустой текст"):
+    with pytest.raises(ValueError, match="empty text"):
         KokoroEngine().synth("  ", "af_heart", tmp_path / "a.wav")
 
 
@@ -45,7 +45,7 @@ def test_kokoro_does_not_load_weights_in_constructor(monkeypatch):
 
 
 def test_kokoro_concatenates_generator_chunks(tmp_path, monkeypatch):
-    """generate() отдаёт длинный текст кусками, их надо склеить в один wav."""
+    """generate() hands back long text in pieces, which have to join into one wav."""
     import numpy as np
 
     class Result:
@@ -72,7 +72,7 @@ def test_kokoro_raises_when_generator_is_empty(tmp_path, monkeypatch):
 
     engine = KokoroEngine()
     monkeypatch.setattr(engine, "_load", lambda: DummyModel())
-    with pytest.raises(RuntimeError, match="ничего не выдал"):
+    with pytest.raises(RuntimeError, match="returned nothing"):
         engine.synth("hello", "af_heart", tmp_path / "a.wav")
 
 

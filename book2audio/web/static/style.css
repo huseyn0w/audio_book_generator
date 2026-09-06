@@ -1,5 +1,5 @@
-/* Монохромная система: чёрный, белый, zinc. Цветом обозначается только
-   состояние, никогда оформление. */
+/* A monochrome system: black, white, zinc. Color marks state only, never
+   decoration. */
 
 :root {
   --bg: #ffffff;
@@ -105,12 +105,12 @@ h2 {
 .muted { color: var(--text-muted); }
 .subtle { color: var(--text-subtle); font-size: 0.875rem; }
 
-/* --- экраны --- */
+/* --- screens --- */
 
 .screen { display: none; }
 .screen.active { display: block; }
 
-/* --- карточки --- */
+/* --- cards --- */
 
 .card {
   background: var(--surface);
@@ -120,7 +120,7 @@ h2 {
   margin-bottom: var(--space-4);
 }
 
-/* --- зона перетаскивания --- */
+/* --- the drop zone --- */
 
 .dropzone {
   border: 1px dashed var(--border-strong);
@@ -140,14 +140,14 @@ h2 {
   outline-offset: 2px;
 }
 
-/* --- элементы формы --- */
+/* --- form controls --- */
 
 .row {
   display: flex;
   gap: var(--space-4);
   flex-wrap: wrap;
-  /* По верху, а не по низу: подсказка под одним полем иначе роняет
-     подписи всех остальных на разную высоту. */
+  /* Aligned to the top, not the bottom: a hint under one field would otherwise
+     drop every other label to a different height. */
   align-items: flex-start;
 }
 
@@ -226,7 +226,7 @@ button.danger {
   border-color: var(--border-strong);
 }
 
-/* --- главы в предпросмотре --- */
+/* --- the chapters in the preview --- */
 
 .chapter {
   border-bottom: 1px solid var(--border);
@@ -264,7 +264,7 @@ button.danger {
   font-size: 0.875rem;
 }
 
-/* --- прогресс --- */
+/* --- progress --- */
 
 .bar {
   height: 8px;
@@ -313,8 +313,8 @@ audio { width: 100%; margin-top: var(--space-4); }
   }
 }
 
-/* Диктор и кнопка образца стоят в одну строку: слушать надо тот голос,
-   который выбран прямо сейчас. */
+/* The narrator and the sample button sit on one line: you listen to the voice
+   that is selected right now. */
 .voice-row {
   display: flex;
   gap: var(--space-2);
@@ -323,7 +323,7 @@ audio { width: 100%; margin-top: var(--space-4); }
 
 .voice-row select {
   flex: 1;
-  /* Имя голоса должно читаться целиком: «по умо.» это не выбор. */
+  /* The voice name has to be readable in full: "defau." is not a choice. */
   min-width: 140px;
 }
 
@@ -331,8 +331,8 @@ audio { width: 100%; margin-top: var(--space-4); }
   flex: 0 0 auto;
 }
 
-/* Предупреждение о языке. Не ошибка: книга озвучится, но скорее всего не так,
-   как человек ожидает, поэтому тон мягче красного. */
+/* The language warning. It is not an error: the book will be read, most likely
+   not the way the person expects, so the tone is softer than red. */
 .warning {
   margin: var(--space-3) 0;
   padding: var(--space-3);
@@ -342,8 +342,8 @@ audio { width: 100%; margin-top: var(--space-4); }
   background: var(--surface-2);
 }
 
-/* Подсказка под полем: формат диапазона не угадывается, а ошибка стоит
-   похода на сервер и обратно. */
+/* The hint under the field: the range format cannot be guessed, and a mistake
+   costs a trip to the server and back. */
 .hint {
   display: block;
   margin-top: var(--space-1);
@@ -351,14 +351,14 @@ audio { width: 100%; margin-top: var(--space-4); }
   color: var(--text-subtle);
 }
 
-/* Переключатель языка в шапке. Прижат вправо, размером с подпись рядом:
-   это настройка, а не действие, и внимание забирать не должен. */
+/* The language switch in the header. Pushed right, the size of the label next to
+   it: this is a setting, not an action, and must not take attention. */
 header { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
 
 .lang {
   margin-left: auto;
-  /* Общее правило для select даёт ширину 100% и высоту 40px. В шапке это
-     полоса во весь экран. Здесь настройка размером с подпись рядом. */
+  /* The shared select rule gives 100% width and 40px height. In the header that
+     is a bar across the screen. Here it is the size of the label next to it. */
   width: auto;
   min-height: 0;
   padding: 2px var(--space-2);
@@ -369,3 +369,28 @@ header { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: w
 }
 
 .lang:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* --- credit --- */
+
+footer.credit {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--text-subtle);
+}
+
+footer.credit a {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+footer.credit a:hover { color: var(--text); }
+
+footer.credit a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

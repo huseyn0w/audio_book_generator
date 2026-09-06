@@ -1,6 +1,6 @@
-"""Движок-пустышка. Пишет тишину длиной пропорционально тексту.
+"""A dummy engine. Writes silence with a length proportional to the text.
 
-Нужен, чтобы тесты конвейера гонялись за секунды и не тянули веса моделей.
+It keeps the pipeline tests down to seconds and away from model weights.
 """
 
 from pathlib import Path
@@ -26,8 +26,8 @@ class FakeEngine:
 
     def synth(self, text: str, voice: str, out_path: Path) -> None:
         if voice not in self.VOICE_IDS:
-            raise ValueError(f"неизвестный голос: {voice}")
+            raise ValueError(f"unknown voice: {voice}")
         if not text.strip():
-            raise ValueError("пустой текст")
+            raise ValueError("empty text")
         frames = int(self.sample_rate * len(text) / self.CHARS_PER_SECOND)
         write_wav_mono16(out_path, np.zeros(frames, dtype=np.float32), self.sample_rate)

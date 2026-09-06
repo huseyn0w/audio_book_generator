@@ -19,7 +19,7 @@ def texts(p):
     return [b.text for b in p.blocks]
 
 
-# --- определение колонок ---
+# --- detecting the columns ---
 
 
 def test_single_column_page_is_detected():
@@ -34,7 +34,7 @@ def test_two_column_page_is_detected():
 
 
 def test_page_with_too_few_blocks_stays_single_column():
-    """На двух блоках отличить колонки от случайности нельзя."""
+    """With two blocks you cannot tell columns from coincidence."""
     assert column_count(page([blk("Л", 40, 100), blk("П", 320, 100)])) == 1
 
 
@@ -43,7 +43,7 @@ def test_full_width_blocks_do_not_create_columns():
     assert column_count(p) == 1
 
 
-# --- порядок чтения ---
+# --- reading order ---
 
 
 def test_single_column_is_sorted_top_to_bottom():
@@ -54,7 +54,7 @@ def test_single_column_is_sorted_top_to_bottom():
 
 
 def test_two_columns_are_read_left_first_then_right():
-    """Без этого текст читается чересполосицей и смысл теряется."""
+    """Without this the text reads interleaved and the meaning is lost."""
     blocks = [
         blk("Л1", 40, 100),
         blk("П1", 320, 90),
@@ -80,7 +80,7 @@ def test_sorting_never_loses_a_block():
     assert len(sort_reading_order(page(blocks)).blocks) == 10
 
 
-# --- реальные данные ---
+# --- real data ---
 
 
 def test_history_textbook_is_two_column():

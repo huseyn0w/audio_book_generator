@@ -1,4 +1,4 @@
-"""HTTP-слой. Тонкая обёртка над конвейером и реестром задач."""
+"""The HTTP layer. A thin wrapper around the pipeline and the job registry."""
 
 import asyncio
 import json
@@ -26,22 +26,22 @@ STATIC = Path(__file__).parent / "static"
 SUPPORTED_LANGUAGES = {"ru", "en"}
 SUPPORTED_GENDERS = {"male", "female"}
 
-# Сколько символов проза даёт в секунду озвучки. Замер на реальных книгах.
+# How many characters of prose make one second of audio. Measured on real books.
 CHARS_PER_SECOND = 15.0
 
-# Фраза для образца голоса. Русская содержит омограф «замок»: на нём слышно,
-# ставит ли движок ударение сам. Обе достаточно длинные, чтобы судить о голосе
-# на скорости x2, и достаточно короткие, чтобы синтез был мгновенным.
+# The phrase for the voice sample. The Russian one holds the homograph «замок»:
+# on it you hear whether the engine places the stress itself. Both are long enough
+# to judge a voice at x2 and short enough to synthesize instantly.
 SAMPLE_TEXT = {
     "ru": "Замок на двери был старше самого дома, и открыть его удавалось не с первого раза.",
     "en": "The lock on the door was older than the house itself, and it never opened first try.",
 }
 
-# Пауза между опросами состояния для потока прогресса.
+# The pause between state polls for the progress stream.
 POLL_SECONDS = 0.4
 
-# Предел жизни одного SSE-соединения. Браузер переподключается сам, а вечное
-# соединение держит поток даже после того, как вкладку закрыли.
+# The lifetime limit of one SSE connection. The browser reconnects on its own,
+# while an endless connection holds a thread even after the tab is closed.
 STREAM_MAX_SECONDS = 300.0
 
 
@@ -51,7 +51,7 @@ async def progress_events(
     poll_seconds: float = POLL_SECONDS,
     max_seconds: float = STREAM_MAX_SECONDS,
 ):
-    """Отдаёт состояние задачи, пока оно меняется. Поток в одну сторону."""
+    """Streams the job state while it changes. One direction only."""
     previous = None
     deadline = time.monotonic() + max_seconds
     while time.monotonic() < deadline:
@@ -72,8 +72,8 @@ def create_app(
     engine_name: str = "",
     copy_to: Path | None = None,
 ) -> FastAPI:
-    # Запуск через uvicorn идёт по строке импорта, аргумент туда не передать,
-    # поэтому путь приезжает из окружения.
+    # Starting through uvicorn goes by the import string and an argument cannot
+    # reach it, so the path arrives from the environment.
     copy_to = copy_to or destination(None)
     root = Path(root or Path.home() / ".book2audio")
     uploads = root / "uploads"
@@ -96,12 +96,12 @@ def create_app(
     def require(job_id: str):
         job = store.get(job_id)
         if job is None:
-            raise HTTPException(status_code=404, detail="задача не найдена")
+            raise HTTPException(status_code=404, detail="job not found")
         return job
 
     @app.get("/health")
     def health() -> dict:
-        # Языка книги здесь ещё нет, поэтому спрашиваем обо всех инструментах.
+        # The book language is not known here, so we ask about every tool.
         absent = missing_tools()
         return {
             "status": "degraded" if absent else "ok",
@@ -115,7 +115,7 @@ def create_app(
 
     @app.get("/api/settings")
     def settings() -> dict:
-        """Куда уезжает готовая книга. Интерфейс показывает настоящий путь."""
+        """Where the finished book goes. The interface shows the real path."""
         return {
             "destination": str(copy_to) if copy_to else None,
             "suggestions": suggestions(),
@@ -124,7 +124,7 @@ def create_app(
     @app.get("/api/voices")
     def voices(language: str = "ru") -> dict:
         if language not in SUPPORTED_LANGUAGES:
-            raise HTTPException(status_code=400, detail=f"язык {language} не поддерживается")
+            raise HTTPException(status_code=400, detail=f"language {language} is not supported")
         engine = build_engine(language, engine_name)
         defaults = {gender: DEFAULTS.get((language, gender)) for gender in SUPPORTED_GENDERS}
         return {
@@ -135,16 +135,16 @@ def create_app(
 
     @app.get("/api/sample")
     def sample(language: str = "ru", voice: str = ""):
-        """Одна фраза выбранным голосом. Диктора надо слышать, а не читать."""
+        """One phrase in the chosen voice. A narrator has to be heard, not read."""
         if language not in SUPPORTED_LANGUAGES:
-            raise HTTPException(status_code=400, detail=f"язык {language} не поддерживается")
+            raise HTTPException(status_code=400, detail=f"language {language} is not supported")
         engine = build_engine(language, engine_name)
         known = {v.id for v in engine.voices()}
         if voice not in known:
-            raise HTTPException(status_code=400, detail=f"неизвестный голос: {voice}")
+            raise HTTPException(status_code=400, detail=f"unknown voice: {voice}")
 
-        # Кэш общий с книгами по устройству, но лежит отдельно: образцы
-        # переживают удаление задач.
+        # The cache works like the one for books but sits apart: samples outlive
+        # the jobs being deleted.
         cache = SynthCache(root / "samples")
         path = cache.synth(engine, SAMPLE_TEXT[language], voice)
         return FileResponse(path, media_type="audio/wav", filename=f"{voice}.wav")
@@ -160,18 +160,18 @@ def create_app(
         if suffix not in EXTRACTORS:
             known = ", ".join(sorted(EXTRACTORS))
             raise HTTPException(
-                status_code=400, detail=f"формат {suffix} не поддерживается, умею: {known}"
+                status_code=400, detail=f"format {suffix} is not supported, I can do: {known}"
             )
         if language not in SUPPORTED_LANGUAGES:
-            raise HTTPException(status_code=400, detail=f"язык {language} не поддерживается")
+            raise HTTPException(status_code=400, detail=f"language {language} is not supported")
         if gender not in SUPPORTED_GENDERS:
-            raise HTTPException(status_code=400, detail=f"пол {gender} не поддерживается")
+            raise HTTPException(status_code=400, detail=f"gender {gender} is not supported")
 
-        # Страницы есть только в PDF. В EPUB и FB2 их нет, и молча
-        # притворяться, что есть, значит врать про объём работы.
+        # Only PDF has pages. EPUB and FB2 do not, and quietly pretending they do
+        # means lying about how much work there is.
         if pages.strip() and suffix != ".pdf":
             raise HTTPException(
-                status_code=400, detail=f"страниц в {suffix} нет, выбирайте главы после разбора"
+                status_code=400, detail=f"{suffix} has no pages, pick chapters after parsing"
             )
         try:
             parse_page_spec(pages)
@@ -204,7 +204,7 @@ def create_app(
         job = require(job_id)
         chapters = store.get_review(job.id)
         if chapters is None:
-            raise HTTPException(status_code=409, detail="книга ещё разбирается")
+            raise HTTPException(status_code=409, detail="the book is still being parsed")
         chars = sum(len(c["text"]) for c in chapters if c.get("include", True))
         minutes = chars / CHARS_PER_SECOND / 60
         engine = build_engine(job.language, engine_name)
@@ -214,15 +214,15 @@ def create_app(
             "chapters": chapters,
             "chars": chars,
             "minutes": round(minutes, 1),
-            # Сколько ждать. У Kokoro это в шесть раз дольше, чем у Silero,
-            # и знать об этом надо до нажатия кнопки.
+            # How long the wait is. With Kokoro it is six times longer than with
+            # Silero, and you want to know that before pressing the button.
             "synth_minutes": round(minutes / engine.realtime, 1),
             "warning": language_warning(text, job.language),
         }
 
     @app.get("/api/jobs/{job_id}/report")
     def report(job_id: str) -> dict:
-        """Что выбросила чистка и что не синтезировалось."""
+        """What cleaning dropped and what failed to synthesize."""
         job = require(job_id)
         work = root / "work" / job.id
 
@@ -239,7 +239,7 @@ def create_app(
         require(job_id)
         chapters = payload.get("chapters")
         if not isinstance(chapters, list):
-            raise HTTPException(status_code=400, detail="ожидался список глав")
+            raise HTTPException(status_code=400, detail="a list of chapters was expected")
         store.save_review(job_id, chapters)
         return {"ok": True}
 
@@ -247,13 +247,13 @@ def create_app(
     def synthesize(job_id: str, payload: Annotated[dict | None, Body()] = None) -> dict:
         payload = payload or {}
         job = require(job_id)
-        # FAILED здесь намеренно: упавшую задачу можно перезапустить, кэш
-        # синтеза общий, так что повтор стоит только сборки.
+        # FAILED is here on purpose: a failed job can be restarted, the synthesis
+        # cache is shared, so a retry costs only the assembly.
         if job.state not in {State.READY, State.UPLOADED, State.EXTRACTING, State.FAILED}:
-            raise HTTPException(status_code=409, detail=f"задача в состоянии {job.state.value}")
+            raise HTTPException(status_code=409, detail=f"the job is in state {job.state.value}")
 
-        # Промежуточные wav занимают на порядок больше готового m4b. Узнать
-        # об этом на середине книги значит потерять весь прогон.
+        # The intermediate wavs take an order of magnitude more room than the
+        # finished m4b. Learning that mid-book means losing the whole run.
         chapters = store.get_review(job_id) or []
         chars = sum(len(c["text"]) for c in chapters if c.get("include", True))
         try:
@@ -288,7 +288,7 @@ def create_app(
     def download(job_id: str):
         job = require(job_id)
         if job.state != State.DONE or not job.result:
-            raise HTTPException(status_code=409, detail="книга ещё не готова")
+            raise HTTPException(status_code=409, detail="the book is not ready yet")
         if job.result.is_dir():
             archive = Path(shutil.make_archive(str(job.result), "zip", job.result))
             return FileResponse(archive, filename=archive.name)

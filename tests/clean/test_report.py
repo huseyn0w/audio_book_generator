@@ -64,11 +64,11 @@ def test_clean_pages_survives_an_empty_document():
     assert report.kept == 0
 
 
-# --- реальные данные ---
+# --- real data ---
 
 
 def test_clean_book_loses_almost_nothing():
-    """На Кристенсене чистить нечего, потери должны быть в пределах шума."""
+    """The Christensen book has nothing to clean, losses must stay within noise."""
     from book2audio.extract.pdf import read_pages
 
     pages = read_pages(FIXTURES / "toc_ru.pdf")

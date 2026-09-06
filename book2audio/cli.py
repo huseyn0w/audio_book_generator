@@ -1,4 +1,4 @@
-"""Командная строка. Тонкая обёртка над конвейером."""
+"""Command line. A thin wrapper around the pipeline."""
 
 import time
 from pathlib import Path
@@ -15,13 +15,13 @@ from book2audio.tts.fake import FakeEngine
 from book2audio.tts.kokoro import KokoroEngine
 from book2audio.tts.silero import SileroEngine
 
-app = typer.Typer(help="Книги в аудиокниги. PDF на входе, wav на выходе.", add_completion=False)
+app = typer.Typer(help="Books into audiobooks. A PDF in, a wav out.", add_completion=False)
 
 ENGINE_BY_LANGUAGE = {"ru": SileroEngine, "en": KokoroEngine}
 
 
 def parse_chapters(value: str | None) -> Selection | None:
-    """Разбирает 1-3 или 4. Нумерация глав с единицы, как в списке команды chapters."""
+    """Parses 1-3 or 4. Chapters count from one, same as the chapters command lists them."""
     if not value:
         return None
     try:
@@ -30,16 +30,14 @@ def parse_chapters(value: str | None) -> Selection | None:
         else:
             first = last = int(value)
     except ValueError as exc:
-        raise typer.BadParameter(
-            f"диапазон глав должен быть вида 1-3 или 4, а не {value!r}"
-        ) from exc
+        raise typer.BadParameter(f"a chapter range looks like 1-3 or 4, not {value!r}") from exc
     if first < 1 or first > last:
-        raise typer.BadParameter(f"неверный диапазон глав: {value!r}")
+        raise typer.BadParameter(f"bad chapter range: {value!r}")
     return Selection(chapters=tuple(range(first - 1, last)))
 
 
 def parse_pages(value: str | None) -> Selection | None:
-    """Разбирает 10-20 или 7. Правила общие с веб-формой, лежат в models."""
+    """Parses 10-20 or 7. The rules are shared with the web form and live in models."""
     try:
         return parse_page_spec(value)
     except ValueError as exc:
@@ -47,12 +45,12 @@ def parse_pages(value: str | None) -> Selection | None:
 
 
 def build_engine(language: str, engine_name: str = "") -> TTSEngine:
-    """Собирает движок под язык. Заглушка нужна тестам CLI."""
+    """Builds the engine for a language. The stub is there for the CLI tests."""
     if engine_name == "fake":
         return FakeEngine()
     factory = ENGINE_BY_LANGUAGE.get(language)
     if factory is None:
-        raise typer.BadParameter(f"язык {language!r} не поддерживается")
+        raise typer.BadParameter(f"language {language!r} is not supported")
     return factory()
 
 
@@ -62,53 +60,53 @@ def _resolve_voice(language: str, voice: str | None, gender: str) -> str:
     try:
         return pick_default(language, gender)
     except KeyError as exc:
-        raise typer.BadParameter(f"нет голоса по умолчанию для {language}/{gender}") from exc
+        raise typer.BadParameter(f"no default voice for {language}/{gender}") from exc
 
 
 @app.command()
 def voices(
-    lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
+    lang: Annotated[str, typer.Option(help="ru or en")] = "ru",
 ) -> None:
-    """Показывает голоса движка для языка."""
+    """Shows the voices the engine has for a language."""
     engine = build_engine(lang)
-    typer.echo(f"движок {engine.name}, версия {engine.version}")
+    typer.echo(f"engine {engine.name}, version {engine.version}")
     for v in engine.voices():
         typer.echo(f"  {v.id:16} {v.gender}")
 
 
 def convert_book(
-    path: Annotated[Path, typer.Argument(help="Файл книги", exists=True)],
-    lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
-    gender: Annotated[str, typer.Option(help="female или male")] = "female",
-    voice: Annotated[str | None, typer.Option(help="Конкретный голос, важнее чем --gender")] = None,
-    pages: Annotated[str | None, typer.Option(help="Диапазон, например 10-20")] = None,
-    out: Annotated[Path, typer.Option(help="Куда класть результат")] = Path("./output"),
-    engine: Annotated[str, typer.Option(help="Пусто или fake для тестов", hidden=True)] = "",
+    path: Annotated[Path, typer.Argument(help="Book file", exists=True)],
+    lang: Annotated[str, typer.Option(help="ru or en")] = "ru",
+    gender: Annotated[str, typer.Option(help="female or male")] = "female",
+    voice: Annotated[str | None, typer.Option(help="A specific voice, wins over --gender")] = None,
+    pages: Annotated[str | None, typer.Option(help="A range, for example 10-20")] = None,
+    out: Annotated[Path, typer.Option(help="Where to put the result")] = Path("./output"),
+    engine: Annotated[str, typer.Option(help="Empty or fake for tests", hidden=True)] = "",
     clean: Annotated[
-        bool, typer.Option(help="Чистить текст. --no-clean покажет книгу как есть")
+        bool, typer.Option(help="Clean the text. --no-clean shows the book as it is")
     ] = True,
     chapters: Annotated[
-        str | None, typer.Option(help="Диапазон глав, например 1-3. Для EPUB и FB2")
+        str | None, typer.Option(help="A chapter range, for example 1-3. EPUB and FB2 only")
     ] = None,
-    audio_format: Annotated[str, typer.Option("--format", help="m4b или mp3")] = "m4b",
+    audio_format: Annotated[str, typer.Option("--format", help="m4b or mp3")] = "m4b",
     copy_to: Annotated[
         str | None,
         typer.Option(
             "--copy-to",
-            help="Папка для готовой книги, например ~/Desktop/Аудиокниги",
+            help="Folder for the finished book, for example ~/Desktop/Audiobooks",
         ),
     ] = None,
 ) -> None:
-    """Превращает книгу в аудио."""
+    """Turns a book into audio."""
     if copy_to is not None and not copy_to.strip():
-        raise typer.BadParameter("--copy-to не может быть пустым")
+        raise typer.BadParameter("--copy-to cannot be empty")
     chosen_folder = Path(copy_to) if copy_to else None
     target_folder = destination(chosen_folder)
 
     try:
         check_tools(lang)
     except MissingTool as exc:
-        typer.echo(f"Не получится: {exc}")
+        typer.echo(f"Cannot run: {exc}")
         raise typer.Exit(code=1) from exc
 
     tts = build_engine(lang, engine)
@@ -123,11 +121,13 @@ def convert_book(
             share = p.done / p.total
             elapsed = time.monotonic() - started
             eta = elapsed / share - elapsed if share > 0 else 0
-            line = f"синтез {p.done}/{p.total} ({share:.0%}), осталось ≈{eta / 60:.1f} мин"
+            line = f"synthesis {p.done}/{p.total} ({share:.0%}), about {eta / 60:.1f} min left"
         else:
-            line = {"extract": "читаю книгу", "chunk": "режу на куски", "assemble": "склеиваю"}[
-                p.stage
-            ]
+            line = {
+                "extract": "reading the book",
+                "chunk": "cutting into pieces",
+                "assemble": "putting it together",
+            }[p.stage]
         if line != last_line:
             typer.echo(line)
             last_line = line
@@ -146,72 +146,72 @@ def convert_book(
             copy_to=target_folder,
         )
     except NoTextLayer as exc:
-        typer.echo(f"Не получится: {exc}")
+        typer.echo(f"Cannot run: {exc}")
         raise typer.Exit(code=1) from exc
     except ValueError as exc:
-        typer.echo(f"Ошибка: {exc}")
+        typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1) from exc
 
-    typer.echo(f"готово за {(time.monotonic() - started) / 60:.1f} мин: {target}")
+    typer.echo(f"done in {(time.monotonic() - started) / 60:.1f} min: {target}")
     if target_folder:
-        typer.echo(f"копия: {target_folder / target.name}")
+        typer.echo(f"copy: {target_folder / target.name}")
 
 
 def chapters_of(
-    path: Annotated[Path, typer.Argument(help="Файл книги", exists=True)],
-    lang: Annotated[str, typer.Option(help="ru или en")] = "ru",
+    path: Annotated[Path, typer.Argument(help="Book file", exists=True)],
+    lang: Annotated[str, typer.Option(help="ru or en")] = "ru",
 ) -> None:
-    """Показывает список глав с номерами для --chapters."""
+    """Lists the chapters with the numbers --chapters takes."""
     from book2audio.pipeline import pick_extractor
 
     document = pick_extractor(path, clean=True, language=lang).extract(path)
-    typer.echo(f"«{document.title}» — {len(document.chapters)} глав")
+    typer.echo(f"«{document.title}» — {len(document.chapters)} chapters")
     for number, chapter in enumerate(document.chapters, start=1):
         minutes = chapter.char_count() / 15 / 60
-        typer.echo(f"  {number:3}  {minutes:5.0f} мин  {chapter.title[:60]}")
+        typer.echo(f"  {number:3}  {minutes:5.0f} min  {chapter.title[:60]}")
 
 
 @app.command()
 def serve(
-    host: Annotated[str, typer.Option(help="Адрес. По умолчанию только localhost")] = "127.0.0.1",
-    port: Annotated[int, typer.Option(help="Порт")] = 8000,
-    reload: Annotated[bool, typer.Option(help="Перезапуск при правке кода")] = False,
+    host: Annotated[str, typer.Option(help="Address. Localhost only by default")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Port")] = 8000,
+    reload: Annotated[bool, typer.Option(help="Restart when the code changes")] = False,
     copy_to: Annotated[
         str | None,
         typer.Option(
             "--copy-to",
-            help="Папка для готовых книг, например ~/Desktop/Аудиокниги. "
-            "По умолчанию папка Audiobooks в iCloud Drive",
+            help="Folder for finished books, for example ~/Desktop/Audiobooks. "
+            "Without it nothing is copied and you download the book from the browser",
         ),
     ] = None,
 ) -> None:
-    """Поднимает веб-интерфейс."""
+    """Starts the web interface."""
     import os
 
     import uvicorn
 
-    # uvicorn с --reload создаёт приложение сам по строке импорта, поэтому
-    # путь едет через окружение, а не аргументом.
+    # uvicorn with --reload builds the app itself from the import string, so the
+    # path travels through the environment instead of an argument.
     if copy_to is not None:
         if not copy_to.strip():
-            raise typer.BadParameter("--copy-to не может быть пустым")
+            raise typer.BadParameter("--copy-to cannot be empty")
         os.environ[COPY_TO_ENV] = str(Path(copy_to).expanduser())
     folder = destination(Path(copy_to) if copy_to else None)
-    typer.echo(f"готовые книги: {folder}" if folder else "копирование выключено")
+    typer.echo(f"finished books: {folder}" if folder else "copying is off")
 
-    # Веб не знает языка книги заранее, поэтому спрашиваем обо всём сразу.
-    # Это предупреждение, а не отказ: русская книга без espeak-ng озвучится.
+    # The web does not know the book language up front, so ask about everything at once.
+    # This is a warning, not a refusal: a Russian book reads fine without espeak-ng.
     absent = missing_tools()
     if absent:
         commands = "; ".join(INSTALL[tool] for tool in absent)
-        typer.echo(f"внимание, не хватает: {', '.join(absent)}. Поставить: {commands}")
+        typer.echo(f"warning, missing: {', '.join(absent)}. Install with: {commands}")
 
-    typer.echo(f"открой http://{host}:{port}")
+    typer.echo(f"open http://{host}:{port}")
     uvicorn.run("book2audio.web.main:app", host=host, port=port, reload=reload)
 
 
-# typer берёт имя команды из имени функции, поэтому регистрируем явно:
-# нужны "convert" и "chapters", а не "convert-book" и "chapters-of".
+# typer takes the command name from the function name, so register them explicitly:
+# we want "convert" and "chapters", not "convert-book" and "chapters-of".
 app.command(name="convert")(convert_book)
 app.command(name="chapters")(chapters_of)
 

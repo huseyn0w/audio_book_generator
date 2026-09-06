@@ -1,7 +1,7 @@
-"""Сегментация текста на чанки синтеза и расстановка пауз.
+"""Cutting text into synthesis chunks and placing the pauses.
 
-Движок синтезирует куски, а не книгу целиком. Границу предложения не рвём:
-разорванное предложение слышно сразу, интонация обрывается на полуслове.
+The engine synthesizes pieces, not a whole book. We never break a sentence:
+a broken one is audible at once, the intonation stops mid-word.
 """
 
 from dataclasses import dataclass
@@ -24,16 +24,16 @@ class Chunk:
 
     def __post_init__(self) -> None:
         if not self.text.strip():
-            raise ValueError("пустой текст чанка")
+            raise ValueError("empty chunk text")
         if self.pause_after < 0:
-            raise ValueError(f"пауза не может быть отрицательной: {self.pause_after}")
+            raise ValueError(f"a pause cannot be negative: {self.pause_after}")
 
 
 def split_long_sentence(sentence: str, limit: int) -> list[str]:
-    """Режет предложение, которое само длиннее лимита.
+    """Cuts a sentence that is itself longer than the limit.
 
-    Порядок предпочтений: точка с запятой, запятая, пробел, затем как есть.
-    Кривая пауза внутри предложения лучше, чем упавший синтез.
+    Order of preference: semicolon, comma, space, then as it is.
+    A crooked pause inside a sentence beats synthesis that fell over.
     """
     if len(sentence) <= limit:
         return [sentence]
@@ -51,7 +51,7 @@ def split_long_sentence(sentence: str, limit: int) -> list[str]:
 
 
 def _pack(pieces: list[str], limit: int, glue: str) -> list[str]:
-    """Складывает куски в строки не длиннее лимита."""
+    """Packs the pieces into lines no longer than the limit."""
     out: list[str] = []
     current = ""
     for piece in pieces:
@@ -72,7 +72,7 @@ def _sentences(text: str, language: str) -> list[str]:
 
 
 def _pack_paragraph(text: str, language: str, limit: int) -> list[str]:
-    """Пакует предложения абзаца в чанки, не разрывая предложение."""
+    """Packs a paragraph's sentences into chunks without breaking a sentence."""
     parts: list[str] = []
     for sentence in _sentences(text, language):
         parts.extend(split_long_sentence(sentence, limit))
@@ -80,16 +80,16 @@ def _pack_paragraph(text: str, language: str, limit: int) -> list[str]:
 
 
 def is_speakable(text: str) -> bool:
-    """Есть ли в куске что произносить.
+    """Whether the piece has anything to pronounce.
 
-    «* * *» это разделитель сцен: букв и цифр нет, и Silero падает на нём
-    голым ValueError. Пауза между абзацами разрыв сцены и так обозначит.
+    "* * *" is a scene break: no letters or digits, and Silero fails on it with
+    a bare ValueError. The pause between paragraphs marks the scene break anyway.
     """
     return any(c.isalnum() for c in text)
 
 
 def chunk_document(doc: Document, language: str, limit: int = CHUNK_LIMIT) -> list[Chunk]:
-    """Разбивает документ на чанки с паузами по границам абзацев и глав."""
+    """Splits the document into chunks with pauses at paragraph and chapter borders."""
     chunks: list[Chunk] = []
 
     for chapter in doc.chapters:

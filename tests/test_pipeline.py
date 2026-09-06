@@ -123,7 +123,7 @@ def test_convert_refuses_a_scanned_pdf(tmp_path):
 
 
 def test_convert_rejects_a_voice_the_engine_does_not_have(tmp_path):
-    with pytest.raises(ValueError, match="неизвестный голос"):
+    with pytest.raises(ValueError, match="unknown voice"):
         convert(
             TOC_PDF,
             language="ru",
@@ -137,7 +137,7 @@ def test_convert_rejects_a_voice_the_engine_does_not_have(tmp_path):
 def test_convert_rejects_unknown_file_format(tmp_path):
     book = tmp_path / "book.txt"
     book.write_text("привет", encoding="utf-8")
-    with pytest.raises(ValueError, match="неизвестный формат"):
+    with pytest.raises(ValueError, match="unknown format"):
         convert(book, language="ru", voice="fake_a", out_dir=tmp_path, engine=FakeEngine())
 
 
@@ -158,7 +158,7 @@ def test_convert_writes_a_clean_report(tmp_path):
 
 
 def test_convert_can_skip_cleaning(tmp_path):
-    """--no-clean нужен, чтобы понять, эвристика испортила текст или он таким и был."""
+    """--no-clean tells you whether a heuristic spoiled the text or it came that way."""
     out = convert(
         TOC_PDF,
         language="ru",
@@ -173,7 +173,7 @@ def test_convert_can_skip_cleaning(tmp_path):
 
 
 class OneBadChunkEngine(FakeEngine):
-    """Срывается на чанке с заданной подстрокой, остальное синтезирует."""
+    """Fails on a chunk holding the given substring and synthesizes the rest."""
 
     def __init__(self, poison: str) -> None:
         self.poison = poison
@@ -218,7 +218,7 @@ def test_convert_writes_no_synth_report_when_nothing_failed(tmp_path):
 
 
 class ShortLimitEngine(FakeEngine):
-    """Движок с коротким пределом, как модель голосов СНГ."""
+    """An engine with a short limit, like the CIS voices model."""
 
     max_chars = 120
 
@@ -229,7 +229,7 @@ class ShortLimitEngine(FakeEngine):
 
 
 def test_convert_respects_the_engine_chunk_limit(tmp_path):
-    """Общий лимит в 800 символов ломает движок, который держит меньше."""
+    """A shared 800 character limit breaks an engine that holds less."""
     book = tmp_path / "book.fb2"
     long_text = "Довольно длинное предложение про инновации и рынки. " * 20
     book.write_text(_fb2("Глава", long_text), encoding="utf-8")

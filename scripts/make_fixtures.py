@@ -1,10 +1,10 @@
-"""Нарезка тестовых фикстур из реальных книг.
+"""Cutting test fixtures out of real books.
 
-Книги целиком в репозиторий не кладём, только вырезки в несколько страниц.
-Источники лежат в ~/Downloads и на другой машине могут отсутствовать,
-поэтому скрипт запускается руками, а не тестами.
+Whole books never go into the repository, only clippings of a few pages. The
+sources live in ~/Downloads and may be missing on another machine, so this script
+is run by hand rather than by the tests.
 
-Запуск:
+Usage:
     uv run python scripts/make_fixtures.py
 """
 
@@ -15,43 +15,43 @@ import pymupdf
 SOURCES = Path.home() / "Downloads"
 FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures"
 
-# имя фикстуры -> (файл-источник, первая страница, последняя, зачем нужна)
+# fixture name -> (source file, first page, last page, what it is for)
 RECIPES: dict[str, tuple[str, int, int, str]] = {
-    "toc_ru.pdf": ("430741.pdf", 22, 30, "есть закладки и метаданные"),
+    "toc_ru.pdf": ("430741.pdf", 22, 30, "has bookmarks and metadata"),
     "no_toc_ru.pdf": (
         "Нил Штраус Правда Неудобная книга об отношениях.pdf",
         30,
         36,
-        "закладок нет, главы ищем по размеру шрифта",
+        "no bookmarks, chapters are found by font size",
     ),
     "scanned_ru.pdf": (
         "Glavnoe_v_istorii_iskusstv.pdf",
         10,
         12,
-        "нет текстового слоя, ждём понятную ошибку",
+        "no text layer, we expect a readable error",
     ),
     "typeset_ru.pdf": (
         "7-hist-05.pdf",
         44,
         51,
-        "две колонки, колонтитулы, сноски мелким шрифтом, переносы",
+        "two columns, running heads, footnotes in a small font, line break hyphens",
     ),
     "typeset_en.pdf": (
         "Cracking the Coding Interview 189 Programming Questions and Solutions.pdf",
         60,
         66,
-        "колонтитулы, номера страниц, листинги кода",
+        "running heads, page numbers, code listings",
     ),
 }
 
 
 def cut(source: Path, first: int, last: int, target: Path) -> None:
-    """Вырезает страницы с first по last включительно, нумерация с единицы."""
+    """Cuts pages first through last inclusive, numbered from one."""
     src = pymupdf.open(source)
     out = pymupdf.open()
     out.insert_pdf(src, from_page=first - 1, to_page=last - 1)
     out.set_metadata(src.metadata)
-    # Закладки указывают на страницы оригинала, во вырезке нумерация своя.
+    # Bookmarks point at the original pages, and a clipping numbers its own.
     kept = [
         [level, title, page - first + 1]
         for level, title, page in src.get_toc()
@@ -65,10 +65,10 @@ def cut(source: Path, first: int, last: int, target: Path) -> None:
 
 
 def cut_fb2(source: Path, keep_sections: int, target: Path) -> None:
-    """Оставляет первые секции первого body и урезает примечания.
+    """Keeps the first sections of the first body and trims the notes.
 
-    Второй body с атрибутом name="notes" сохраняем нарочно: фикстура нужна
-    именно для проверки, что примечания не попадают в озвучку.
+    The second body with name="notes" is kept on purpose: the fixture exists to
+    check that the notes never reach the audio.
     """
     from lxml import etree
 
@@ -83,7 +83,7 @@ def cut_fb2(source: Path, keep_sections: int, target: Path) -> None:
         for section in sections[limit:]:
             body.remove(section)
 
-    # Картинки весят больше самого текста, для тестов они не нужны.
+    # The images weigh more than the text itself and the tests do not need them.
     for binary in root.findall("fb:binary", ns)[1:]:
         root.remove(binary)
 
@@ -91,7 +91,7 @@ def cut_fb2(source: Path, keep_sections: int, target: Path) -> None:
 
 
 def cut_epub(source: Path, keep_docs: int, target: Path) -> None:
-    """Оставляет первые документы spine вместе с их частью оглавления."""
+    """Keeps the first spine documents together with their part of the contents."""
     import ebooklib
     from ebooklib import epub
 
@@ -132,14 +132,14 @@ def cut_epub(source: Path, keep_docs: int, target: Path) -> None:
 
 
 EBOOK_RECIPES: dict[str, tuple[str, int, str]] = {
-    "book_ru.fb2": ("430741.fb2", 5, "секции, вложенность, отдельный body примечаний"),
+    "book_ru.fb2": ("430741.fb2", 5, "sections, nesting, a separate notes body"),
     "book_ru.epub": (
         (
             "Kristensen_Reshenie-problemy-innovaciy-v-biznese-Kak-sozdat-rastushchiy-biznes-"
             "i-uspeshno-podderzhivat-ego-rost.430741.fb2.epub"
         ),
         12,
-        "вложенное оглавление с якорями, нет заголовков h1-h3",
+        "nested contents with anchors, no h1-h3 headings",
     ),
 }
 
@@ -149,24 +149,24 @@ def main() -> None:
     for name, (source_name, first, last, why) in RECIPES.items():
         source = SOURCES / source_name
         if not source.exists():
-            print(f"пропуск {name}: нет источника {source}")
+            print(f"skipped {name}: no source {source}")
             continue
         target = FIXTURES / name
         cut(source, first, last, target)
         size_kb = target.stat().st_size // 1024
-        print(f"{name:16} {size_kb:5} КБ  стр {first}-{last}  {why}")
+        print(f"{name:16} {size_kb:5} KB  pages {first}-{last}  {why}")
 
     for name, (source_name, keep, why) in EBOOK_RECIPES.items():
         source = SOURCES / source_name
         if not source.exists():
-            print(f"пропуск {name}: нет источника {source}")
+            print(f"skipped {name}: no source {source}")
             continue
         target = FIXTURES / name
         if name.endswith(".fb2"):
             cut_fb2(source, keep, target)
         else:
             cut_epub(source, keep, target)
-        print(f"{name:16} {target.stat().st_size // 1024:5} КБ  {why}")
+        print(f"{name:16} {target.stat().st_size // 1024:5} KB  {why}")
 
 
 if __name__ == "__main__":

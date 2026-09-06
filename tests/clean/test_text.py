@@ -8,7 +8,7 @@ from book2audio.clean.text import (
     squeeze_spaces,
 )
 
-# --- переносы ---
+# --- line break hyphens ---
 
 
 def test_hyphen_at_line_break_joins_the_word():
@@ -16,7 +16,7 @@ def test_hyphen_at_line_break_joins_the_word():
 
 
 def test_hyphen_before_capital_is_kept():
-    """Красно-Белый это составное слово, а не перенос."""
+    """«Красно-Белый» is a compound word, not a line break."""
     assert join_hyphenated("Красно- Белый") == "Красно-Белый"
 
 
@@ -40,7 +40,7 @@ def test_double_hyphen_is_not_a_line_break():
     assert join_hyphenated("текст -- ещё текст") == "текст -- ещё текст"
 
 
-# --- кавычки и пробелы ---
+# --- quotes and spaces ---
 
 
 @pytest.mark.parametrize("quoted", ['"слово"', "«слово»", "“слово”", "„слово“"])
@@ -68,7 +68,7 @@ def test_squeeze_strips_edges():
     assert squeeze_spaces("  край  ") == "край"
 
 
-# --- всё вместе ---
+# --- everything together ---
 
 
 def test_clean_text_applies_every_rule():
@@ -85,11 +85,11 @@ def test_clean_text_keeps_meaningful_dashes():
     assert clean_text("Москва — столица.") == "Москва — столица."
 
 
-# --- О-большое, потерянное при извлечении ---
+# --- big O lost during extraction ---
 
 
 def test_big_o_restored_before_letter():
-    """В шрифтах технических книг буква O иногда приходит нулём.
+    """In the fonts of technical books the letter O sometimes arrives as a zero.
 
     Замер на фикстурах: 15 попаданий в английской технической книге,
     ноль ложных срабатываний в пяти остальных.
@@ -102,7 +102,7 @@ def test_big_o_restored_before_digit():
 
 
 def test_big_o_survives_a_space_from_typesetting():
-    """В реальной книге вёрстка вставляет пробел: '0( s log s)'."""
+    """In a real book the typesetting inserts a space: '0( s log s)'."""
     assert restore_big_o("is 0( s log s).") == "is O(s log s)."
 
 

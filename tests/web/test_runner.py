@@ -121,11 +121,11 @@ def test_runner_handles_one_job_at_a_time(store, runner):
     )
 
 
-# --- выбор голоса ---
+# --- picking the voice ---
 
 
 def test_voice_is_chosen_from_what_the_engine_actually_has(store, runner, tmp_path):
-    """Голос по умолчанию задан для Silero, но движок может быть другим."""
+    """The default voice is set for Silero, but the engine may be another one."""
     from book2audio.tts.fake import FakeEngine
     from book2audio.web.jobs import Job
 
@@ -162,7 +162,7 @@ def test_gender_is_respected_when_choosing_a_fallback(runner, tmp_path):
 
 
 def test_runner_survives_one_failed_chunk(store, tmp_path, monkeypatch):
-    """Сорванный чанк не должен ронять задачу, которая шла полчаса."""
+    """A failed chunk must not kill a job that has been running for half an hour."""
     import json
 
     from book2audio.tts import cache as cache_module
@@ -198,7 +198,7 @@ def test_runner_survives_one_failed_chunk(store, tmp_path, monkeypatch):
 
 
 def test_runner_keeps_the_cover_through_review(store, runner, tmp_path):
-    """Документ пересобирается из правленого текста, обложку надо сохранить отдельно."""
+    """The document is rebuilt from the edited text, so the cover is saved separately."""
     import subprocess
     import sys
 
@@ -234,7 +234,7 @@ def test_runner_keeps_the_cover_through_review(store, runner, tmp_path):
 
 
 def test_runner_extracts_in_the_language_of_the_job(store, runner, tmp_path):
-    """Английская книга не должна нормализоваться русскими правилами."""
+    """An English book must not be normalized by the Russian rules."""
     job = store.create(source=FIXTURES / "typeset_en.pdf", language="en", gender="male")
     runner.start_extraction(job.id)
     assert wait_for(lambda: store.get(job.id).state == State.READY)
@@ -246,7 +246,7 @@ def test_runner_extracts_in_the_language_of_the_job(store, runner, tmp_path):
 
 
 def test_failure_message_is_never_empty(store, runner, tmp_path, monkeypatch):
-    """Silero кидает ValueError без текста, и на экране было пусто."""
+    """Silero throws a ValueError with no text, and the screen was left empty."""
     from book2audio.web import runner as runner_module
 
     def boom(self, job):
@@ -264,7 +264,7 @@ def test_failure_message_is_never_empty(store, runner, tmp_path, monkeypatch):
 
 
 def test_cache_is_shared_between_jobs(store, tmp_path):
-    """Кэш адресуется по содержимому, привязка к задаче делает повтор бесплатным
+    """The cache is addressed by content, and tying it to a job makes a retry free
     только внутри одной задачи. Загрузка той же книги считала всё заново."""
     calls = {"n": 0}
 
@@ -304,7 +304,7 @@ def test_cache_is_shared_between_jobs(store, tmp_path):
 
 
 def test_deleting_a_job_keeps_the_shared_cache(store, tmp_path):
-    """Удаление задачи не должно стирать чужую работу."""
+    """Deleting a job must not erase somebody else's work."""
     cache_root = tmp_path / "cache"
     worker = Runner(
         store,

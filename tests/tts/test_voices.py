@@ -1,4 +1,4 @@
-"""Пол голоса. UI даёт выбрать язык и пол, движок обязан это знать."""
+"""Voice gender. The UI offers a language and a gender, and the engine has to know it."""
 
 import pytest
 
@@ -15,7 +15,7 @@ def test_voice_is_hashable_and_carries_gender():
 
 
 def test_voice_rejects_unknown_gender():
-    with pytest.raises(ValueError, match="неизвестный пол"):
+    with pytest.raises(ValueError, match="unknown gender"):
         Voice(id="x", gender="robot")
 
 
@@ -31,7 +31,7 @@ def test_silero_reports_gender_for_native_voices():
 
 
 def test_silero_marks_cis_voices_unknown():
-    """Дикторы СНГ в UI не идут, пол по имени не угадываем."""
+    """The CIS narrators never reach the UI, and we do not guess gender from a name."""
     genders = {v.gender for v in SileroEngine(model_id="v5_cis_base").voices()}
     assert genders == {"unknown"}
 
@@ -74,11 +74,11 @@ def test_every_engine_reports_a_version_for_the_cache_key():
     assert KokoroEngine().version == "mlx-community/Kokoro-82M-bf16"
 
 
-# --- предел длины куска ---
+# --- the piece length limit ---
 
 
 def test_engines_declare_a_chunk_limit():
-    """Замер 2026-09-05: v5_5_ru принимает ~1097 символов, v5_cis_base ~795.
+    """Measured 2026-09-05: v5_5_ru takes ~1097 characters, v5_cis_base ~795.
 
     Общая константа в 800 символов ломала бы модель СНГ, поэтому предел
     объявляет сам движок.

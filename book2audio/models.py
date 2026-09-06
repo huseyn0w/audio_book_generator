@@ -1,4 +1,4 @@
-"""Модель книги. Всё выше по потоку строит Document, всё ниже его читает."""
+"""The book model. Everything upstream builds a Document, everything downstream reads it."""
 
 from dataclasses import dataclass, field
 from typing import Literal
@@ -7,12 +7,19 @@ Language = Literal["ru", "en"]
 BlockKind = Literal["heading", "paragraph"]
 
 LANGUAGES: tuple[str, ...] = ("ru", "en")
+
+# Fallback chapter titles follow the book, not the interface. The opening title is
+# read aloud, so an English word in a Russian book would be heard; the chapter
+# label sits in the player next to the book's own chapter names.
+OPENING_TITLE = {"ru": "Начало", "en": "Beginning"}
+CHAPTER_LABEL = {"ru": "Глава", "en": "Chapter"}
+UNTITLED = {"ru": "Без названия", "en": "Untitled"}
 BLOCK_KINDS: tuple[str, ...] = ("heading", "paragraph")
 
 
 @dataclass(frozen=True)
 class Block:
-    """Кусок текста с известной ролью. Номер страницы есть только у PDF."""
+    """A piece of text with a known role. Only PDF has a page number."""
 
     kind: BlockKind
     text: str
@@ -20,9 +27,9 @@ class Block:
 
     def __post_init__(self) -> None:
         if self.kind not in BLOCK_KINDS:
-            raise ValueError(f"неизвестный вид блока: {self.kind}")
+            raise ValueError(f"unknown block kind: {self.kind}")
         if not self.text.strip():
-            raise ValueError("пустой текст блока")
+            raise ValueError("empty block text")
 
 
 @dataclass
@@ -40,12 +47,12 @@ class Document:
     author: str | None
     language: Language
     chapters: list[Chapter] = field(default_factory=list)
-    # Байты картинки, а не путь: извлечению не нужно знать про рабочую папку.
+    # The image bytes, not a path: extraction need not know about the work folder.
     cover: bytes | None = None
 
     def __post_init__(self) -> None:
         if self.language not in LANGUAGES:
-            raise ValueError(f"неподдерживаемый язык: {self.language}")
+            raise ValueError(f"unsupported language: {self.language}")
 
     def char_count(self) -> int:
         return sum(c.char_count() for c in self.chapters)
@@ -53,10 +60,10 @@ class Document:
 
 @dataclass(frozen=True)
 class Selection:
-    """Что именно озвучиваем.
+    """What exactly we are reading out.
 
-    У PDF это диапазон страниц, у EPUB и FB2 номера глав. Одновременно
-    задать оба нельзя: в EPUB страниц нет, а притворяться, что есть, вредно.
+    For PDF it is a page range, for EPUB and FB2 chapter numbers. You cannot set
+    both: EPUB has no pages, and pretending it does is harmful.
     """
 
     pages: tuple[int, int] | None = None
@@ -64,16 +71,16 @@ class Selection:
 
     def __post_init__(self) -> None:
         if self.pages is not None and self.chapters is not None:
-            raise ValueError("выбирается или страницы, или главы, не оба сразу")
+            raise ValueError("choose either pages or chapters, not both at once")
         if self.pages is not None:
             first, last = self.pages
             if first < 1:
-                raise ValueError("страницы нумеруются с единицы")
+                raise ValueError("pages are numbered from one")
             if first > last:
-                raise ValueError("начало диапазона больше конца")
+                raise ValueError("the range starts after it ends")
 
     def page_indexes(self) -> list[int]:
-        """Номера страниц с нуля, как их ждёт PyMuPDF."""
+        """Page numbers from zero, the way PyMuPDF expects them."""
         if self.pages is None:
             return []
         first, last = self.pages
@@ -81,18 +88,18 @@ class Selection:
 
 
 def parse_page_spec(value: str | None) -> Selection | None:
-    """Разбирает «10-20» или «7». Пусто значит вся книга.
+    """Parses "10-20" or "7". Empty means the whole book.
 
-    Живёт рядом с Selection, а не в CLI: тот же разбор нужен веб-форме,
-    а дублировать правила в двух местах значит разойтись в третьем.
+    It lives next to Selection rather than in the CLI: the web form needs the same
+    parsing, and duplicating the rules in two places means diverging in a third.
     """
     if not value or not value.strip():
         return None
     parts = value.replace(" ", "").split("-")
     if len(parts) > 2 or not all(part.isdigit() for part in parts):
-        raise ValueError(f"диапазон страниц должен быть вида 10-20 или 7, а не {value!r}")
+        raise ValueError(f"a page range looks like 10-20 or 7, not {value!r}")
     first = int(parts[0])
     last = int(parts[-1])
     if first < 1 or first > last:
-        raise ValueError(f"неверный диапазон страниц: {value!r}")
+        raise ValueError(f"bad page range: {value!r}")
     return Selection(pages=(first, last))

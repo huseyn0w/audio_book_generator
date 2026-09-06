@@ -24,10 +24,10 @@ def test_fake_engine_duration_is_proportional_to_text(tmp_path):
 
 
 def test_fake_engine_rejects_unknown_voice(tmp_path):
-    with pytest.raises(ValueError, match="неизвестный голос"):
+    with pytest.raises(ValueError, match="unknown voice"):
         FakeEngine().synth("привет", "nope", tmp_path / "a.wav")
 
 
 def test_fake_engine_rejects_empty_text(tmp_path):
-    with pytest.raises(ValueError, match="пустой текст"):
+    with pytest.raises(ValueError, match="empty text"):
         FakeEngine().synth("   ", "fake_a", tmp_path / "a.wav")

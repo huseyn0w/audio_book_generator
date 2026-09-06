@@ -66,7 +66,7 @@ def test_concat_joins_files_and_sums_duration(tmp_path):
 
 
 def test_concat_handles_more_files_than_fit_on_a_command_line(tmp_path):
-    """Книга даёт тысячи чанков, список файлов должен идти через файл, не через argv."""
+    """A book gives thousands of chunks, so the file list travels in a file, not argv."""
     from book2audio.audio import concat
 
     parts = []
@@ -83,5 +83,5 @@ def test_concat_handles_more_files_than_fit_on_a_command_line(tmp_path):
 def test_concat_rejects_empty_input(tmp_path):
     from book2audio.audio import concat
 
-    with pytest.raises(ValueError, match="нечего склеивать"):
+    with pytest.raises(ValueError, match="nothing to join"):
         concat([], tmp_path / "out.wav", 24000)

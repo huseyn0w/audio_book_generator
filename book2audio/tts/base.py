@@ -1,4 +1,4 @@
-"""Единственный интерфейс синтеза. Всё, что ниже по потоку, потребляет wav."""
+"""The one synthesis interface. Everything downstream consumes wav."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,8 +9,8 @@ Gender = Literal["male", "female", "unknown"]
 
 GENDERS: tuple[str, ...] = ("male", "female", "unknown")
 
-# Выбраны слепым сравнением, см. docs/superpowers/specs/voice-choice.md.
-# Русский женский пересмотрен 2026-09-05 на абзаце из реальной книги.
+# Picked by a blind comparison, see docs/superpowers/specs/voice-choice.md.
+# The Russian female voice was revisited 2026-09-05 on a real book paragraph.
 DEFAULTS: dict[tuple[str, str], str] = {
     ("ru", "female"): "kseniya",
     ("ru", "male"): "eugene",
@@ -21,38 +21,38 @@ DEFAULTS: dict[tuple[str, str], str] = {
 
 @dataclass(frozen=True)
 class Voice:
-    """Голос движка. Пол нужен UI, чтобы дать выбор до выбора конкретного диктора."""
+    """An engine voice. The UI needs the gender to offer a choice before a narrator is picked."""
 
     id: str
     gender: Gender
 
     def __post_init__(self) -> None:
         if self.gender not in GENDERS:
-            raise ValueError(f"неизвестный пол: {self.gender}")
+            raise ValueError(f"unknown gender: {self.gender}")
 
 
 def pick_default(language: str, gender: str) -> str:
-    """Голос по умолчанию для пары язык плюс пол."""
+    """The default voice for a language plus gender pair."""
     return DEFAULTS[(language, gender)]
 
 
 @runtime_checkable
 class TTSEngine(Protocol):
     name: str
-    # Версия модели входит в ключ кэша: смена модели инвалидирует старые wav.
+    # The model version is part of the cache key: a new model invalidates old wavs.
     version: str
     sample_rate: int
-    # Во сколько раз синтез быстрее реального времени. Нужен, чтобы сказать
-    # заранее, сколько ждать: у Silero и Kokoro разница в шесть раз.
+    # How many times faster than real time synthesis runs. Needed to say up
+    # front how long the wait is: Silero and Kokoro differ by six times.
     realtime: float
-    # Сколько символов движок принимает за раз. У моделей Silero предел
-    # разный, общая константа ломала бы ту, что держит меньше.
+    # How many characters the engine takes at once. Silero models differ in
+    # this limit, and one shared constant would break the smaller one.
     max_chars: int
 
     def voices(self) -> list[Voice]:
-        """Голоса движка вместе с полом."""
+        """The engine voices together with their gender."""
         ...
 
     def synth(self, text: str, voice: str, out_path: Path) -> None:
-        """Синтезирует текст в моно-wav на скорости x1."""
+        """Synthesizes the text into a mono wav at x1 speed."""
         ...

@@ -23,7 +23,7 @@ def test_parse_pages_returns_none_for_whole_document():
 
 
 def test_parse_pages_rejects_garbage():
-    with pytest.raises(typer.BadParameter, match="диапазон страниц"):
+    with pytest.raises(typer.BadParameter, match="page range"):
         parse_pages("десять")
 
 
@@ -87,7 +87,7 @@ def test_convert_command_explains_a_scanned_pdf(tmp_path):
 
 
 def test_serve_command_exists_and_defaults_to_localhost():
-    """Инструмент внутренний, авторизации нет: наружу светить нельзя."""
+    """The tool is internal and has no authorization: it must not face outward."""
     import inspect
 
     from book2audio.cli import serve
@@ -98,7 +98,7 @@ def test_serve_command_exists_and_defaults_to_localhost():
 
 
 def test_convert_stops_early_when_ffmpeg_is_missing(tmp_path, monkeypatch):
-    """Полчаса синтеза, а потом «нет ffmpeg» — худший из возможных порядков."""
+    """Half an hour of synthesis and then "no ffmpeg" is the worst possible order."""
     monkeypatch.setattr("book2audio.preflight.shutil.which", lambda name: None)
     result = runner.invoke(
         app,
@@ -132,7 +132,7 @@ def test_convert_does_not_demand_espeak_for_russian(tmp_path, monkeypatch):
 
 
 def test_help_lists_each_command_once():
-    """Команда регистрируется дважды, и typer показывает служебное имя функции."""
+    """The command is registered twice, and typer shows the internal function name."""
     output = runner.invoke(app, ["--help"]).output
     for name in ("convert", "chapters", "voices", "serve"):
         assert f" {name} " in output or f"│ {name}" in output

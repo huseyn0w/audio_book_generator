@@ -1,4 +1,4 @@
-"""Приведение текста к виду, который движок прочитает правильно.
+"""Bringing the text to a form the engine will read correctly.
 
 Работает со строками, поэтому годится для любого формата книги.
 Ударения не наша забота: Silero v5 расставляет их сам.
@@ -8,8 +8,8 @@ import re
 
 from num2words import num2words
 
-# Сокращения раскрываем до постановки чисел: «стр. 45» должно стать
-# «страница сорок пять», а не «страница 45».
+# Abbreviations expand before the numbers are spelled out: «стр. 45» has to become
+# «страница сорок пять», not «страница 45».
 ABBREVIATIONS: dict[str, dict[str, str]] = {
     "ru": {
         "т.е.": "то есть",
@@ -34,18 +34,18 @@ ABBREVIATIONS: dict[str, dict[str, str]] = {
 
 URL = re.compile(r"\b(?:https?://|www\.)\S+|\b[\w.+-]+@[\w-]+\.[\w.]+\b")
 
-# Число, не приклеенное к букве: «A4» и «COVID19» читать по частям нельзя.
+# A number not glued to a letter: «A4» and «COVID19» must not be read in pieces.
 NUMBER = re.compile(r"(?<![\w.,])(\d+(?:[.,]\d+)?)(?![\w])")
 
 PERCENT = re.compile(r"(?<![\w.,])(\d+(?:[.,]\d+)?)\s*%")
 
-# Год с предлогом: «в 1861 году», «до 1917 года», «к 1980 году».
+# A year with a preposition: «в 1861 году», «до 1917 года», «к 1980 году».
 YEAR_CONTEXT = re.compile(r"\b(в|к|с|до|от|после|за|на)\s+(\d{4})\s+(год\w*)", re.IGNORECASE)
 
-# Русский порядковый числительный надо просклонять, иначе выходит
-# «в тысяча восемьсот шестьдесят первый году». На слух это режет сразу.
-# Ключ это предлог плюс форма слова «год», значение это окончания
-# для основ на -ый/-ой и на -ий.
+# A Russian ordinal has to be declined, otherwise you get «в тысяча восемьсот
+# шестьдесят первый году», which grates the moment you hear it. The key is the
+# preposition plus the form of «год», the value is the endings for stems in
+# -ый/-ой and in -ий.
 ORDINAL_ENDINGS: dict[str, tuple[str, str]] = {
     "предложный": ("ом", "ьем"),
     "дательный": ("ому", "ьему"),
@@ -56,20 +56,20 @@ ORDINAL_ENDINGS: dict[str, tuple[str, str]] = {
 
 GENITIVE_PREPOSITIONS = {"с", "до", "от", "после"}
 
-# «Глава 1» надо читать «Глава первая», а не «Глава один». Слышно на каждой
-# границе главы, поэтому вынесено в отдельное правило. Род берётся от слова.
+# «Глава 1» has to be read «Глава первая», not «Глава один». You hear it at every
+# chapter boundary, so it is a rule of its own. The gender comes from the word.
 HEADING_WORDS_FEMININE = ("глава", "часть", "книга")
 HEADING_WORDS_MASCULINE = ("раздел", "том")
 HEADING_ORDINAL = re.compile(r"\b(Глава|Часть|Книга|Раздел|Том)\s+(\d{1,3})\b", re.IGNORECASE)
 
-# Римская цифра как отдельное слово. Одиночная I слишком часто это местоимение
-# или инициал, поэтому требуем минимум два знака.
+# A Roman numeral as a separate word. A lone I is far too often a pronoun or an
+# initial, so we require at least two characters.
 ROMAN = re.compile(r"\b(?=[MDCLXVI]{2,})(M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3}))\b")
 
 ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
-# Век римской цифрой. «III в.» как «три век» меняет смысл на количество,
-# поэтому век разбирается раньше общего правила римских цифр.
+# A century in Roman numerals. «III в.» as «три век» turns it into a count, so the
+# century is handled before the general Roman numeral rule.
 ROMAN_PART = r"(?=[MDCLXVI]{1,7}\b)M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"
 CENTURY = re.compile(
     rf"(?:\b(в|к|с|до|от|после|на)\s+)?({ROMAN_PART})(?:\s*[—–-]\s*({ROMAN_PART}))?"
@@ -82,12 +82,12 @@ LINK_WORD = {"ru": "ссылка", "en": "link"}
 
 
 def strip_urls(text: str, language: str) -> str:
-    """Ссылки и почта вслух бесполезны, заменяем одним словом."""
+    """Links and email are useless read aloud, so one word replaces them."""
     return URL.sub(LINK_WORD.get(language, "link"), text)
 
 
 def expand_abbreviations(text: str, language: str) -> str:
-    """Раскрывает сокращения. Точка в них иначе ломает разбивку на предложения."""
+    """Expands abbreviations. Their period otherwise breaks sentence splitting."""
     for short, full in ABBREVIATIONS.get(language, {}).items():
         text = re.sub(rf"(?<!\w){re.escape(short)}", full, text)
     return text
@@ -104,7 +104,7 @@ def _roman_value(numeral: str) -> int:
 
 
 def roman_to_words(text: str, language: str) -> str:
-    """Переводит римские цифры в арабские. Числами займётся numbers_to_words."""
+    """Turns Roman numerals into Arabic. numbers_to_words deals with the numbers."""
 
     def replace(match: re.Match[str]) -> str:
         numeral = match.group(0)
@@ -116,7 +116,7 @@ def roman_to_words(text: str, language: str) -> str:
 
 
 def _year_case(preposition: str, year_word: str) -> str:
-    """Определяет падеж порядкового числительного по предлогу и форме слова «год»."""
+    """Works out the case of the ordinal from the preposition and the form of «год»."""
     word = year_word.lower()
     preposition = preposition.lower()
     if word.startswith("годом"):
@@ -133,7 +133,7 @@ def _year_case(preposition: str, year_word: str) -> str:
 
 
 def _decline_ordinal(spoken: str, case: str) -> str:
-    """Меняет окончание последнего слова порядкового числительного."""
+    """Changes the ending of the last word of the ordinal."""
     if case == "именительный":
         return spoken
     soft_stem, hard_stem = ORDINAL_ENDINGS[case][1], ORDINAL_ENDINGS[case][0]
@@ -162,7 +162,7 @@ def _feminize_ordinal(spoken: str) -> str:
 
 
 def headings_to_ordinals(text: str, language: str) -> str:
-    """Номер главы читается порядковым числительным с нужным родом."""
+    """A chapter number is read as an ordinal in the right gender."""
     if language != "ru":
         return text
 
@@ -180,12 +180,12 @@ def headings_to_ordinals(text: str, language: str) -> str:
 
 
 def centuries_to_words(text: str, language: str) -> str:
-    """«IV в.» читается «четвёртом веке», а не «четыре век»."""
+    """«IV в.» is read «четвёртом веке», not «четыре век»."""
     if language != "ru":
         return text
 
     def replace_century(match: re.Match[str]) -> str:
-        # Форма слова «век» из оригинала не нужна: падеж выводим из предлога.
+        # The original form of «век» is not needed: the case comes from the preposition.
         preposition, first, second, _ = match.groups()
         head = f"{preposition} " if preposition else ""
 
@@ -210,7 +210,7 @@ def centuries_to_words(text: str, language: str) -> str:
 
 
 def numbers_to_words(text: str, language: str) -> str:
-    """Числа прописью. Годы читаются порядковым числительным."""
+    """Numbers spelled out. Years are read as ordinals."""
 
     def say_year(match: re.Match[str]) -> str:
         preposition, year, word = match.groups()
@@ -237,7 +237,7 @@ def numbers_to_words(text: str, language: str) -> str:
 
 
 def normalize_for_speech(text: str, language: str) -> str:
-    """Полная подготовка строки к синтезу. Повторный вызов ничего не меняет."""
+    """The full preparation of a line for synthesis. Calling it again changes nothing."""
     text = strip_urls(text, language)
     text = expand_abbreviations(text, language)
     text = centuries_to_words(text, language)

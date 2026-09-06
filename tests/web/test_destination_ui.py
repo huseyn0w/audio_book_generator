@@ -1,4 +1,4 @@
-"""Выбор папки сохранения в интерфейсе.
+"""Choosing the save folder in the interface.
 
 Флаг --copy-to задаёт папку на весь запуск сервера. Через интерфейс папка
 выбирается для конкретной книги: художественное на телефон, рабочее на диск.
@@ -17,7 +17,7 @@ from book2audio.web.paths import BadDestination, resolve_destination, suggestion
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 
-# --- разбор пути, пришедшего из браузера ---
+# --- parsing the path that came from the browser ---
 
 
 def test_absolute_path_is_accepted(tmp_path):
@@ -35,20 +35,20 @@ def test_empty_means_the_server_default():
 
 
 def test_relative_path_is_refused():
-    """Относительный путь в браузере значит что-то своё, на сервере другое."""
-    with pytest.raises(BadDestination, match="полный путь"):
+    """A relative path means one thing in the browser and another on the server."""
+    with pytest.raises(BadDestination, match="full path"):
         resolve_destination("Аудиокниги")
 
 
 def test_existing_file_is_refused(tmp_path):
     busy = tmp_path / "занято.txt"
     busy.write_text("x", encoding="utf-8")
-    with pytest.raises(BadDestination, match="не папка"):
+    with pytest.raises(BadDestination, match="not a folder"):
         resolve_destination(str(busy))
 
 
 def test_suggestions_include_the_desktop():
-    """Ключи, а не подписи: подпись выбирает интерфейс на своём языке."""
+    """Keys, not labels: the interface picks the label in its own language."""
     keys = {s["key"] for s in suggestions()}
     assert keys == {"desktop", "downloads", "documents"}
     assert any("Desktop" in s["path"] for s in suggestions())
@@ -63,11 +63,11 @@ def test_suggestions_are_absolute():
     assert all(Path(s["path"]).is_absolute() for s in suggestions())
 
 
-# --- база ---
+# --- the database ---
 
 
 def test_old_database_gets_the_new_column(tmp_path):
-    """База уже существует у пользователя, ALTER TABLE обязателен."""
+    """The user already has the database, so ALTER TABLE is required."""
     path = tmp_path / "jobs.db"
     old = sqlite3.connect(path)
     old.executescript(
@@ -158,7 +158,7 @@ def test_synthesize_refuses_a_relative_folder(client):
     wait_ready(client, job_id)
     response = client.post(f"/api/jobs/{job_id}/synthesize", json={"destination": "куда-то"})
     assert response.status_code == 400
-    assert "полный путь" in response.json()["detail"]
+    assert "full path" in response.json()["detail"]
 
 
 def test_review_screen_has_a_folder_field():
@@ -169,7 +169,7 @@ def test_review_screen_has_a_folder_field():
 
 
 def test_both_synthesis_buttons_send_the_folder():
-    """Кнопка «Озвучить» и кнопка повтора должны слать одно и то же."""
+    """The synthesize button and the retry button have to send the same thing."""
     js = Path("book2audio/web/static/app.js").read_text(encoding="utf-8")
     assert js.count("destination: chosenDestination()") == 2
 
@@ -180,7 +180,7 @@ def test_folders_are_loaded_when_review_opens():
 
 
 def test_long_paths_are_shortened_in_the_hint():
-    """Путь к папке в iCloud занимает две строки и обрезается."""
+    """An iCloud folder path takes two lines and gets cut off."""
     js = Path("book2audio/web/static/app.js").read_text(encoding="utf-8")
     assert "function shortPath" in js
     assert "shortPath(destination)" in js

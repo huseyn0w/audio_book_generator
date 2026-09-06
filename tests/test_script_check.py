@@ -1,4 +1,4 @@
-"""Проверка, что выбранный язык совпадает с письменностью книги.
+"""Checking that the chosen language matches the script of the book.
 
 Порог взят из замера на шести фикстурах: русские книги дают 98.2-100%
 кириллицы, английская 87.8% латиницы. Между 12% и 88% пустое место,
@@ -19,12 +19,12 @@ def test_pure_english_has_no_foreign_letters():
 
 
 def test_foreign_share_counts_only_letters():
-    """Цифры и знаки не письменность, они одинаковы в обоих языках."""
+    """Digits and marks are not a script, they are the same in both languages."""
     assert foreign_share("2026 год, 15% — это много!", "ru") == 0.0
 
 
 def test_english_inside_russian_is_measured():
-    """Букв ровно десять: «Слово» пять, «и» одна, «word» четыре."""
+    """Exactly ten letters: «Слово» five, «и» one, "word" four."""
     assert foreign_share("Слово и word", "ru") == pytest.approx(0.4, rel=0.01)
 
 
@@ -34,13 +34,13 @@ def test_empty_text_is_not_a_problem():
 
 
 def test_no_warning_for_a_few_borrowed_words():
-    """1.8% латиницы это норма для русского нонфикшна, замер на фикстурах."""
+    """1.8% Latin is normal for Russian nonfiction, measured on the fixtures."""
     text = "Русский текст " * 100 + "startup"
     assert language_warning(text, "ru") is None
 
 
 def test_warning_when_the_book_is_in_the_other_language():
-    """Отдаём данные, а не фразу: интерфейс может быть на третьем языке."""
+    """We hand back data, not a phrase: the interface may be in a third language."""
     warning = language_warning("This book is written in English " * 20, "ru")
     assert warning == {"expected": "ru", "found": "en", "share": 1.0}
 

@@ -1,8 +1,8 @@
-"""Реестр задач на SQLite.
+"""The job registry on SQLite.
 
-Пользователь один и задача одна, поэтому брокер и отдельный воркер не нужны.
-Хватает таблицы со статусом: веб-процесс можно перезапустить, не потеряв
-состояние, а фоновый поток читает ту же базу.
+There is one user and one job, so a broker and a separate worker are not needed.
+A table with the status is enough: the web process can be restarted without
+losing state, and the background thread reads the same database.
 """
 
 import json
@@ -28,8 +28,9 @@ class State(str, Enum):
 ACTIVE_STATES = {State.EXTRACTING, State.QUEUED, State.SYNTHESIZING}
 FINAL_STATES = {State.DONE, State.FAILED, State.CANCELLED}
 
-# Из этих состояний назад пути нет. FAILED сюда не входит: падение на сборке
-# не должно стоить всей озвучки заново, а кэш делает повтор почти бесплатным.
+# There is no way back out of these states. FAILED is not among them: a failure
+# during assembly must not cost the whole reading again, and the cache makes a
+# retry nearly free.
 IRREVERSIBLE_STATES = {State.DONE, State.CANCELLED}
 
 
@@ -42,7 +43,7 @@ class Job:
     state: State = State.UPLOADED
     voice: str | None = None
     selection: str | None = None
-    # Папка для этой книги. Пусто значит папку, заданную при запуске сервера.
+    # The folder for this book. Empty means the folder set when the server started.
     destination: str | None = None
     audio_format: str = "m4b"
     stage: str = ""
@@ -101,8 +102,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 """
 
-# Колонки, добавленные после первого выпуска. База уже лежит у пользователя
-# с готовыми книгами, пересоздавать её нельзя.
+# Columns added after the first release. The user already has the database with
+# finished books in it, so it cannot be recreated.
 ADDED_COLUMNS = {"destination": "TEXT"}
 
 
@@ -117,7 +118,7 @@ class JobStore:
 
     @staticmethod
     def _migrate(db: sqlite3.Connection) -> None:
-        """Досыпает колонки, которых нет в уже существующей базе."""
+        """Adds the columns an existing database does not have yet."""
         present = {row["name"] for row in db.execute("PRAGMA table_info(jobs)")}
         for column, kind in ADDED_COLUMNS.items():
             if column not in present:
@@ -185,16 +186,16 @@ class JobStore:
     def _require(self, job_id: str) -> Job:
         job = self.get(job_id)
         if job is None:
-            raise KeyError(f"задача не найдена: {job_id}")
+            raise KeyError(f"job not found: {job_id}")
         return job
 
     def set_state(self, job_id: str, state: State) -> None:
-        """Готовую и отменённую задачу назад не пускаем, упавшую пускаем."""
+        """A done or cancelled job cannot move back, a failed one can."""
         current = self._require(job_id)
         if current.state in IRREVERSIBLE_STATES and state not in FINAL_STATES:
-            raise ValueError(f"нельзя перевести задачу из {current.state.value} в {state.value}")
+            raise ValueError(f"cannot move the job from {current.state.value} to {state.value}")
         with self._connect() as db:
-            # Старая ошибка вместе с уходом из FAILED теряет смысл.
+            # The old error stops meaning anything once the job leaves FAILED.
             db.execute("UPDATE jobs SET state = ?, error = '' WHERE id = ?", (state.value, job_id))
 
     def mark_queued(self, job_id: str) -> None:
@@ -226,11 +227,11 @@ class JobStore:
             )
 
     def cancel(self, job_id: str) -> None:
-        """Отменить можно только незавершённую задачу."""
+        """Only an unfinished job can be cancelled."""
         current = self._require(job_id)
         if current.state in FINAL_STATES:
             raise ValueError(
-                f"нельзя перевести задачу из {current.state.value} в {State.CANCELLED.value}"
+                f"cannot move the job from {current.state.value} to {State.CANCELLED.value}"
             )
         with self._connect() as db:
             db.execute("UPDATE jobs SET state = ? WHERE id = ?", (State.CANCELLED.value, job_id))
@@ -248,7 +249,7 @@ class JobStore:
         return self._row_to_job(row) if row else None
 
     def save_review(self, job_id: str, chapters: list[dict]) -> None:
-        """Текст после правки в предпросмотре. Переживает перезапуск процесса."""
+        """The text after the preview edits. It survives a process restart."""
         with self._connect() as db:
             db.execute(
                 "UPDATE jobs SET review = ? WHERE id = ?",

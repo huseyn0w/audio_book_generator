@@ -1,7 +1,7 @@
-"""Эвристики чистки, которым нужны шрифт и координаты.
+"""Cleaning heuristics that need the font and the coordinates.
 
-Работают с RawBlock до сборки Document. Порядок применения важен: сначала
-склейка обрывков, потом выбрасывание служебных блоков.
+They work on RawBlock before the Document is built. The order matters: first the
+fragments are joined, then the service blocks are dropped.
 """
 
 import re
@@ -11,19 +11,19 @@ from dataclasses import replace
 
 from book2audio.extract.layout import RawBlock, RawPage
 
-# Знаки, на которых абзац действительно кончается.
+# The marks a paragraph really ends on.
 TERMINALS = (".", "!", "?", "…", ":", ";", "»", '"', "”", "’")
 
-# Предел склейки. Сломанная вёрстка иначе собирает всю главу в один блок,
-# а такой блок нельзя ни озвучить куском, ни показать в предпросмотре.
+# The joining limit. Broken typesetting would otherwise pull a whole chapter into
+# one block, and such a block can neither be synthesized nor shown in the preview.
 MERGED_MAX_CHARS = 5000
 
-# Насколько может отличаться кегль, чтобы блоки считались одной ролью.
+# How far the font size may differ for two blocks to count as the same role.
 FONT_TOLERANCE = 0.6
 
 
 def _is_open(text: str) -> bool:
-    """Абзац оборван, если не кончается терминальным знаком."""
+    """A paragraph is cut off when it does not end on a terminal mark."""
     return not text.rstrip().endswith(TERMINALS)
 
 
@@ -32,11 +32,11 @@ def _same_role(left: RawBlock, right: RawBlock) -> bool:
 
 
 def merge_continuations(blocks: list[RawBlock]) -> list[RawBlock]:
-    """Склеивает блоки-обрывки в абзацы.
+    """Joins fragment blocks into paragraphs.
 
-    У части PDF блок это строка, а не абзац: до 60% блоков не кончаются
-    знаком препинания. Без склейки чанкер режет по обрывкам и синтез
-    спотыкается на каждой строке.
+    In some PDFs a block is a line rather than a paragraph: up to 60% of blocks do
+    not end on punctuation. Without joining, the chunker cuts on fragments and
+    synthesis stumbles on every line.
     """
     merged: list[RawBlock] = []
     for block in blocks:
@@ -57,16 +57,16 @@ def merge_continuations(blocks: list[RawBlock]) -> list[RawBlock]:
     return merged
 
 
-# --- служебные блоки страницы ---
+# --- the service blocks of a page ---
 
-# Полоса сверху и снизу, в которой ищем колонцифры и колонтитулы.
+# The band at the top and the bottom where we look for page numbers and running heads.
 EDGE_BAND = 0.12
 
-# На какой доле страниц должна встретиться строка, чтобы считаться колонтитулом.
+# On what share of pages a line must appear to count as a running head.
 RUNNING_SHARE = 0.3
 
-# Предохранитель: правило, съедающее больше этой доли страницы, на ней не
-# применяется. Лучше прочитать колонтитул, чем потерять абзац.
+# A safety catch: a rule that eats more than this share of a page is not applied
+# to it. Better to read a running head than to lose a paragraph.
 MAX_DROP_SHARE = 0.6
 
 PAGE_NUMBER = re.compile(r"^[\divxlcdmIVXLCDM.\s\-–—]+$")
@@ -80,14 +80,14 @@ def _in_edge_band(block: RawBlock, page: RawPage) -> bool:
 
 
 def normalize_for_matching(text: str) -> str:
-    """Форма для сравнения колонтитулов: цифры в решётку, регистр вниз."""
+    """The form used to compare running heads: digits to a hash, case down."""
     return DIGITS.sub("#", text).strip().lower()
 
 
 def _apply_with_guard(
     pages: list[RawPage], should_drop: Callable[[RawBlock, RawPage], bool]
 ) -> list[RawPage]:
-    """Применяет правило постранично, отступая, если оно съедает страницу."""
+    """Applies a rule page by page, backing off when it eats the page."""
     result: list[RawPage] = []
     for page in pages:
         kept = [b for b in page.blocks if not should_drop(b, page)]
@@ -98,7 +98,7 @@ def _apply_with_guard(
 
 
 def drop_page_numbers(pages: list[RawPage]) -> list[RawPage]:
-    """Выбрасывает колонцифры: голые числа у верхнего или нижнего края."""
+    """Drops page numbers: bare numbers at the top or the bottom edge."""
 
     def rule(block: RawBlock, page: RawPage) -> bool:
         return _in_edge_band(block, page) and bool(PAGE_NUMBER.fullmatch(block.text.strip()))
@@ -107,7 +107,7 @@ def drop_page_numbers(pages: list[RawPage]) -> list[RawPage]:
 
 
 def drop_running_heads(pages: list[RawPage]) -> list[RawPage]:
-    """Выбрасывает колонтитулы: краевые строки, повторяющиеся по всей книге."""
+    """Drops running heads: edge lines that repeat throughout the book."""
     seen: Counter[str] = Counter()
     for page in pages:
         edges = {normalize_for_matching(b.text) for b in page.blocks if _in_edge_band(b, page)}
@@ -124,25 +124,25 @@ def drop_running_heads(pages: list[RawPage]) -> list[RawPage]:
     return _apply_with_guard(pages, rule)
 
 
-# --- не-проза ---
+# --- not prose ---
 
-# Вёрстка ставит перед подписью к рисунку служебный глиф. В извлечённом
-# тексте он приходит управляющим символом. Сигнал очень точный: 48 попаданий
-# в учебнике истории и ноль в двух других книгах.
+# The typesetting puts a service glyph before a figure caption. In the extracted
+# text it arrives as a control character. The signal is very precise: 48 hits in
+# the history textbook and none in the two other books.
 FIGURE_MARKER = re.compile(r"^[\x00-\x1f]")
 
-# Доля символов, которые не буквы и не пробелы. Выше этой границы блок
-# считается листингом или таблицей.
+# The share of characters that are neither letters nor spaces. Above this line a
+# block counts as a listing or a table.
 NON_PROSE_RATIO = 0.30
 NON_PROSE_MIN_CHARS = 40
 
-# Сноска начинается с номера.
+# A footnote starts with a number.
 FOOTNOTE_START = re.compile(r"^\d{1,3}[\s.)]")
 
-# Полоса внизу страницы, в которой ищем сноски.
+# The band at the bottom of the page where we look for footnotes.
 FOOTNOTE_BAND = 0.75
 
-# Насколько мельче медианы должен быть шрифт сноски.
+# How much smaller than the median a footnote font has to be.
 SMALL_FONT_RATIO = 0.92
 
 
@@ -154,10 +154,10 @@ def _non_alpha_share(text: str) -> float:
 
 
 def drop_figure_captions(pages: list[RawPage]) -> list[RawPage]:
-    """Выбрасывает подписи к рисункам.
+    """Drops figure captions.
 
-    Читать «Бюст Диоклетиана» посреди абзаца бессмысленно, а в учебниках
-    таких подписей десятки на разворот.
+    Reading «Бюст Диоклетиана» in the middle of a paragraph makes no sense, and
+    textbooks carry dozens of such captions per spread.
     """
 
     def rule(block: RawBlock, page: RawPage) -> bool:
@@ -167,7 +167,7 @@ def drop_figure_captions(pages: list[RawPage]) -> list[RawPage]:
 
 
 def drop_non_prose(pages: list[RawPage]) -> list[RawPage]:
-    """Выбрасывает листинги кода и таблицы. Вслух они бесполезны."""
+    """Drops code listings and tables. They are useless read aloud."""
 
     def rule(block: RawBlock, page: RawPage) -> bool:
         return (
@@ -179,10 +179,10 @@ def drop_non_prose(pages: list[RawPage]) -> list[RawPage]:
 
 
 def drop_footnotes(pages: list[RawPage], median: float) -> list[RawPage]:
-    """Выбрасывает сноски: мелкий шрифт, низ страницы и номер в начале.
+    """Drops footnotes: a small font, the bottom of the page and a leading number.
 
-    Все три условия обязательны. Одного мелкого шрифта внизу мало: в
-    Cracking the Coding Interview так набран обычный текст.
+    All three conditions are required. A small font at the bottom is not enough on
+    its own: in Cracking the Coding Interview ordinary text is set that way.
     """
 
     def rule(block: RawBlock, page: RawPage) -> bool:
@@ -195,20 +195,20 @@ def drop_footnotes(pages: list[RawPage], median: float) -> list[RawPage]:
     return _apply_with_guard(pages, rule)
 
 
-# --- колонки и порядок чтения ---
+# --- columns and reading order ---
 
-# Допуск вокруг середины страницы: блок может немного заходить за неё.
+# The tolerance around the page middle: a block may cross it a little.
 COLUMN_TOLERANCE = 0.04
 
-# Сколько блоков должно быть в каждой колонке, чтобы поверить в две колонки.
+# How many blocks each column needs before we believe in two columns.
 MIN_BLOCKS_PER_COLUMN = 3
 
-# Доля ширины страницы, начиная с которой блок считается сквозным.
+# The share of the page width from which a block counts as spanning.
 FULL_WIDTH_SHARE = 0.7
 
 
 def _column_of(block: RawBlock, page: RawPage) -> int:
-    """0 это левая колонка и сквозные блоки, 1 это правая."""
+    """0 is the left column and the spanning blocks, 1 is the right one."""
     middle = page.width / 2
     tolerance = page.width * COLUMN_TOLERANCE
     if (block.bbox[2] - block.bbox[0]) >= page.width * FULL_WIDTH_SHARE:
@@ -217,7 +217,7 @@ def _column_of(block: RawBlock, page: RawPage) -> int:
 
 
 def column_count(page: RawPage) -> int:
-    """Две колонки или одна. Ошибка сюда дороже всего: текст поедет чересполосицей."""
+    """Two columns or one. A mistake here costs the most: the text interleaves."""
     middle = page.width / 2
     tolerance = page.width * COLUMN_TOLERANCE
 
@@ -236,11 +236,11 @@ def column_count(page: RawPage) -> int:
 
 
 def sort_reading_order(page: RawPage) -> RawPage:
-    """Расставляет блоки в порядке чтения.
+    """Puts the blocks into reading order.
 
-    При одной колонке сверху вниз. При двух сначала вся левая колонка,
-    потом вся правая: PyMuPDF сортирует по y и на двух колонках выдаёт
-    строки вперемешку.
+    With one column, top to bottom. With two, the whole left column first and then
+    the whole right one: PyMuPDF sorts by y and on two columns hands back the lines
+    interleaved.
     """
     if column_count(page) == 1:
         ordered = sorted(page.blocks, key=lambda b: (round(b.top, 1), b.bbox[0]))
@@ -251,16 +251,16 @@ def sort_reading_order(page: RawPage) -> RawPage:
     return replace(page, blocks=ordered)
 
 
-# Доля не-букв, при которой мелкий блок считается подписью-датой.
+# The share of non-letters at which a small block counts as a date caption.
 NUMERIC_CAPTION_RATIO = 0.6
 
 
 def drop_numeric_captions(pages: list[RawPage], median: float) -> list[RawPage]:
-    """Выбрасывает мелкие блоки почти из одних цифр.
+    """Drops small blocks made almost entirely of digits.
 
-    В атласах и учебниках так набраны даты под иллюстрациями. Вслух они
-    звучат случайным набором чисел посреди абзаца. Требование мелкого
-    шрифта обязательно: «1861 г.» в основном тексте это содержание.
+    In atlases and textbooks the dates under illustrations are set that way. Read
+    aloud they sound like a random run of numbers in the middle of a paragraph. The
+    small font requirement is essential: «1861 г.» in the body text is content.
     """
 
     def rule(block: RawBlock, page: RawPage) -> bool:
